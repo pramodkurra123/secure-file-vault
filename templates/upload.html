@@ -1,33 +1,443 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Upload File - Secure File Vault</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #0b1120;
+            color: #e5e7eb;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            background: #111827;
+            border-bottom: 1px solid #243044;
+            padding: 18px 35px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-size: 21px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .brand span {
+            color: #38bdf8;
+        }
+
+        .logout {
+            text-decoration: none;
+            color: #ffffff;
+            background: #dc2626;
+            padding: 9px 16px;
+            border-radius: 7px;
+            font-size: 14px;
+        }
+
+        .logout:hover {
+            background: #b91c1c;
+        }
+
+        .container {
+            max-width: 850px;
+            margin: 50px auto;
+            padding: 0 25px;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 12px;
+            padding: 30px;
+        }
+
+        .upload-area {
+            border: 2px dashed #334155;
+            border-radius: 10px;
+            padding: 45px 25px;
+            text-align: center;
+            background: #0f172a;
+            transition: 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: #38bdf8;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .upload-area h2 {
+            color: #ffffff;
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .upload-area p {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .choose-btn {
+            display: inline-block;
+            padding: 11px 20px;
+            background: #1e293b;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .choose-btn:hover {
+            background: #273449;
+        }
+
+        .file-name {
+            margin-top: 15px;
+            color: #38bdf8;
+            font-size: 14px;
+            min-height: 20px;
+        }
+
+        .upload-btn {
+            width: 100%;
+            margin-top: 25px;
+            padding: 13px;
+            border: none;
+            border-radius: 7px;
+            background: #2563eb;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .upload-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .error {
+            margin-bottom: 20px;
+            padding: 12px 15px;
+            border-radius: 7px;
+            background: #450a0a;
+            border: 1px solid #7f1d1d;
+            color: #fca5a5;
+            font-size: 14px;
+        }
+
+        .info-grid {
+            margin-top: 25px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .info-box {
+            background: #0f172a;
+            border: 1px solid #243044;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .info-box strong {
+            display: block;
+            color: #cbd5e1;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+
+        .info-box span {
+            color: #38bdf8;
+            font-size: 13px;
+        }
+
+        .security-note {
+            margin-top: 22px;
+            padding: 15px 17px;
+            border-radius: 8px;
+            background: #0f172a;
+            border: 1px solid #1e3a5f;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .security-note strong {
+            color: #38bdf8;
+        }
+
+        .bottom-links {
+            margin-top: 25px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .link-btn {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+
+        .link-btn:hover {
+            background: #273449;
+            color: #ffffff;
+        }
+
+        @media (max-width: 650px) {
+
+            .topbar {
+                padding: 16px 20px;
+            }
+
+            .container {
+                margin: 30px auto;
+                padding: 0 15px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .upload-area {
+                padding: 35px 15px;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 25px;
+            }
+
+        }
+
+    </style>
+
 </head>
 
 <body>
 
-    <h1>Secure File Vault</h1>
+    <div class="topbar">
 
-    <h2>Upload File</h2>
+        <div class="brand">
+            🔐 Secure <span>File Vault</span>
+        </div>
 
-    {% if error %}
-        <p>{{ error }}</p>
-    {% endif %}
+        <a href="/logout" class="logout">
+            Logout
+        </a>
 
-    <form method="POST" enctype="multipart/form-data">
+    </div>
 
-        <label>Select File:</label>
-        <input type="file" name="file" required>
 
-        <br><br>
+    <div class="container">
 
-        <button type="submit">Upload and Encrypt</button>
+        <div class="header">
 
-    </form>
+            <h1>Upload File</h1>
 
-    <br>
+            <p>
+                Securely upload and encrypt your files before storage.
+            </p>
 
-    <a href="/dashboard">Back to Dashboard</a>
+        </div>
+
+
+        <div class="card">
+
+            {% if error %}
+
+                <div class="error">
+                    ⚠️ {{ error }}
+                </div>
+
+            {% endif %}
+
+
+            <form
+                action="/upload"
+                method="POST"
+                enctype="multipart/form-data"
+            >
+
+                <div class="upload-area">
+
+                    <div class="upload-icon">
+                        📁
+                    </div>
+
+                    <h2>
+                        Select a file to upload
+                    </h2>
+
+                    <p>
+                        Your file will be encrypted before being stored securely.
+                    </p>
+
+
+                    <label for="file" class="choose-btn">
+                        Choose File
+                    </label>
+
+                    <input
+                        type="file"
+                        id="file"
+                        name="file"
+                        class="file-input"
+                        required
+                        onchange="showFileName()"
+                    >
+
+                    <div id="file-name" class="file-name">
+                    </div>
+
+                </div>
+
+
+                <button
+                    type="submit"
+                    class="upload-btn"
+                >
+                    🔒 Encrypt & Upload File
+                </button>
+
+            </form>
+
+
+            <div class="info-grid">
+
+                <div class="info-box">
+
+                    <strong>Maximum Size</strong>
+
+                    <span>
+                        5 MB
+                    </span>
+
+                </div>
+
+
+                <div class="info-box">
+
+                    <strong>Storage</strong>
+
+                    <span>
+                        Encrypted
+                    </span>
+
+                </div>
+
+
+                <div class="info-box">
+
+                    <strong>Access</strong>
+
+                    <span>
+                        Private
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="security-note">
+
+                🔐 <strong>Security:</strong>
+                Files are encrypted using Fernet encryption before being
+                stored in the database. Only authorized users can access
+                their uploaded files.
+
+            </div>
+
+        </div>
+
+
+        <div class="bottom-links">
+
+            <a href="/my-files" class="link-btn">
+                📁 My Files
+            </a>
+
+            <a href="/dashboard" class="link-btn">
+                ← Back to Dashboard
+            </a>
+
+        </div>
+
+    </div>
+
+
+    <script>
+
+        function showFileName() {
+
+            const input = document.getElementById("file");
+            const output = document.getElementById("file-name");
+
+            if (input.files.length > 0) {
+
+                output.textContent =
+                    "Selected: " + input.files[0].name;
+
+            } else {
+
+                output.textContent = "";
+
+            }
+
+        }
+
+    </script>
 
 </body>
+
 </html>

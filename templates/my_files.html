@@ -1,61 +1,384 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>My Files - Secure File Vault</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #0b1120;
+            color: #e5e7eb;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            background: #111827;
+            border-bottom: 1px solid #243044;
+            padding: 18px 35px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-size: 21px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .brand span {
+            color: #38bdf8;
+        }
+
+        .logout {
+            text-decoration: none;
+            color: #ffffff;
+            background: #dc2626;
+            padding: 9px 16px;
+            border-radius: 7px;
+            font-size: 14px;
+        }
+
+        .logout:hover {
+            background: #b91c1c;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 45px auto;
+            padding: 0 25px;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 12px;
+            padding: 25px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px;
+            background: #172033;
+            color: #93c5fd;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 15px 14px;
+            border-top: 1px solid #243044;
+            color: #d1d5db;
+            font-size: 14px;
+        }
+
+        tr:hover td {
+            background: #151e30;
+        }
+
+        .filename {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-block;
+            text-decoration: none;
+            border: none;
+            padding: 8px 13px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .download {
+            background: #2563eb;
+            color: white;
+        }
+
+        .download:hover {
+            background: #1d4ed8;
+        }
+
+        .delete {
+            background: #dc2626;
+            color: white;
+        }
+
+        .delete:hover {
+            background: #b91c1c;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 45px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+
+        .bottom-links {
+            margin-top: 25px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .link-btn {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+
+        .link-btn:hover {
+            background: #273449;
+            color: white;
+        }
+
+        .upload-btn {
+            background: #2563eb;
+            border-color: #2563eb;
+            color: white;
+        }
+
+        .upload-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .security-note {
+            margin-top: 22px;
+            padding: 14px 16px;
+            border-radius: 8px;
+            background: #0f172a;
+            border: 1px solid #1e3a5f;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .security-note strong {
+            color: #38bdf8;
+        }
+
+        @media (max-width: 700px) {
+
+            .topbar {
+                padding: 16px 20px;
+            }
+
+            .container {
+                margin: 30px auto;
+                padding: 0 15px;
+            }
+
+            .header h1 {
+                font-size: 25px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+        }
+
+    </style>
+
 </head>
 
 <body>
 
-    <h1>Secure File Vault</h1>
+    <div class="topbar">
 
-    <h2>My Files</h2>
+        <div class="brand">
+            🔐 Secure <span>File Vault</span>
+        </div>
 
-    {% if files %}
+        <a href="/logout" class="logout">
+            Logout
+        </a>
 
-        <table border="1" cellpadding="8">
+    </div>
 
-            <tr>
-                <th>File Name</th>
-                <th>Size</th>
-                <th>Uploaded At</th>
-                <th>Action</th>
-            </tr>
 
-            {% for file in files %}
+    <div class="container">
 
-            <tr>
+        <div class="header">
 
-                <td>{{ file[1] }}</td>
+            <h1>My Files</h1>
 
-                <td>{{ file[2] }} bytes</td>
+            <p>
+                View, download, and manage your securely stored files.
+            </p>
 
-                <td>{{ file[3] }}</td>
+        </div>
 
-                <td>
-                    <a href="/download/{{ file[0] }}">
-                        Download
-                    </a>
-                </td>
 
-            </tr>
+        <div class="card">
 
-            {% endfor %}
+            {% if files %}
 
-        </table>
+                <table>
 
-    {% else %}
+                    <thead>
 
-        <p>No files uploaded yet.</p>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Size</th>
+                            <th>Uploaded At</th>
+                            <th>Action</th>
+                        </tr>
 
-    {% endif %}
+                    </thead>
 
-    <br>
+                    <tbody>
 
-    <a href="/upload">Upload Another File</a>
+                        {% for file in files %}
 
-    <br><br>
+                        <tr>
 
-    <a href="/dashboard">Back to Dashboard</a>
+                            <td class="filename">
+                                📄 {{ file[1] }}
+                            </td>
+
+                            <td>
+                                {{ file[2] }} bytes
+                            </td>
+
+                            <td>
+                                {{ file[3]|ist }}
+                            </td>
+
+                            <td>
+
+                                <div class="actions">
+
+                                    <a
+                                        href="/download/{{ file[0] }}"
+                                        class="btn download"
+                                    >
+                                        Download
+                                    </a>
+
+
+                                    <form
+                                        action="/delete-file/{{ file[0] }}"
+                                        method="POST"
+                                        style="display:inline;"
+                                        onsubmit="return confirm('Are you sure you want to delete this file? This action cannot be undone.');"
+                                    >
+
+                                        <button
+                                            type="submit"
+                                            class="btn delete"
+                                        >
+                                            Delete
+                                        </button>
+
+                                    </form>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            {% else %}
+
+                <div class="empty">
+
+                    <div class="empty-icon">
+                        📁
+                    </div>
+
+                    <h3>No files uploaded yet</h3>
+
+                    <p>
+                        Upload a file to securely store it in the vault.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <div class="security-note">
+
+            🔒 <strong>Security:</strong>
+            Your uploaded files are encrypted before being stored.
+            You can only access files belonging to your account.
+
+        </div>
+
+
+        <div class="bottom-links">
+
+            <a href="/upload" class="link-btn upload-btn">
+                + Upload Another File
+            </a>
+
+            <a href="/dashboard" class="link-btn">
+                ← Back to Dashboard
+            </a>
+
+        </div>
+
+    </div>
 
 </body>
+
 </html>

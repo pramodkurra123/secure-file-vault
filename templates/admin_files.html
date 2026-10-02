@@ -1,67 +1,407 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Admin File Management</title>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Admin File Management - Secure File Vault</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #0b1120;
+            color: #e5e7eb;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            background: #111827;
+            border-bottom: 1px solid #243044;
+            padding: 18px 35px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-size: 21px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .brand span {
+            color: #38bdf8;
+        }
+
+        .admin-badge {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 4px 9px;
+            border-radius: 5px;
+            background: #7c3aed;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            vertical-align: middle;
+        }
+
+        .logout {
+            text-decoration: none;
+            color: #ffffff;
+            background: #dc2626;
+            padding: 9px 16px;
+            border-radius: 7px;
+            font-size: 14px;
+        }
+
+        .logout:hover {
+            background: #b91c1c;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 45px auto;
+            padding: 0 25px;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 12px;
+            padding: 25px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px;
+            background: #172033;
+            color: #93c5fd;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 15px 14px;
+            border-top: 1px solid #243044;
+            color: #d1d5db;
+            font-size: 14px;
+        }
+
+        tr:hover td {
+            background: #151e30;
+        }
+
+        .id {
+            color: #64748b;
+            font-weight: bold;
+        }
+
+        .username {
+            color: #38bdf8;
+            font-weight: 600;
+        }
+
+        .filename {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .size {
+            color: #cbd5e1;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-block;
+            text-decoration: none;
+            border: none;
+            padding: 8px 13px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .download {
+            background: #2563eb;
+            color: white;
+        }
+
+        .download:hover {
+            background: #1d4ed8;
+        }
+
+        .delete {
+            background: #dc2626;
+            color: white;
+        }
+
+        .delete:hover {
+            background: #b91c1c;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 50px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-icon {
+            font-size: 42px;
+            margin-bottom: 12px;
+        }
+
+        .security-note {
+            margin-top: 22px;
+            padding: 15px 17px;
+            border-radius: 8px;
+            background: #0f172a;
+            border: 1px solid #1e3a5f;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        .security-note strong {
+            color: #38bdf8;
+        }
+
+        .bottom-links {
+            margin-top: 25px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .link-btn {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+
+        .link-btn:hover {
+            background: #273449;
+            color: white;
+        }
+
+        @media (max-width: 700px) {
+
+            .topbar {
+                padding: 16px 20px;
+            }
+
+            .container {
+                margin: 30px auto;
+                padding: 0 15px;
+            }
+
+            .header h1 {
+                font-size: 25px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+        }
+
+    </style>
+
 </head>
 
 <body>
 
-    <h1>Secure File Vault</h1>
+    <div class="topbar">
 
-    <h2>Admin File Management</h2>
+        <div class="brand">
+            🔐 Secure <span>File Vault</span>
+            <span class="admin-badge">ADMIN</span>
+        </div>
 
-    {% if files %}
+        <a href="/logout" class="logout">
+            Logout
+        </a>
 
-        <table border="1" cellpadding="8">
+    </div>
 
-            <tr>
-                <th>File ID</th>
-                <th>Username</th>
-                <th>File Name</th>
-                <th>Size</th>
-                <th>Uploaded At</th>
-                <th>Action</th>
-            </tr>
 
-            {% for file in files %}
+    <div class="container">
 
-            <tr>
+        <div class="header">
 
-                <td>{{ file[0] }}</td>
+            <h1>Admin File Management</h1>
 
-                <td>{{ file[1] }}</td>
+            <p>
+                Manage and monitor files uploaded by all users.
+            </p>
 
-                <td>{{ file[2] }}</td>
+        </div>
 
-                <td>{{ file[3] }} bytes</td>
 
-                <td>{{ file[4] }}</td>
+        <div class="card">
 
-                <td>
-                    <a href="/admin-download/{{ file[0] }}">
-                        Download
-                    </a>
-                </td>
+            {% if files %}
 
-            </tr>
+                <table>
 
-            {% endfor %}
+                    <thead>
 
-        </table>
+                        <tr>
+                            <th>File ID</th>
+                            <th>Username</th>
+                            <th>File Name</th>
+                            <th>Size</th>
+                            <th>Uploaded At</th>
+                            <th>Action</th>
+                        </tr>
 
-    {% else %}
+                    </thead>
 
-        <p>No uploaded files found.</p>
+                    <tbody>
 
-    {% endif %}
+                        {% for file in files %}
 
-    <br>
+                        <tr>
 
-    <a href="/upload">Upload File</a>
+                            <td class="id">
+                                #{{ file[0] }}
+                            </td>
 
-    <br><br>
+                            <td class="username">
+                                {{ file[1] }}
+                            </td>
 
-    <a href="/dashboard">Back to Dashboard</a>
+                            <td class="filename">
+                                📄 {{ file[2] }}
+                            </td>
+
+                            <td class="size">
+                                {{ file[3] }} bytes
+                            </td>
+
+                            <td>
+                                {{ file[4]|ist }}
+                            </td>
+
+                            <td>
+
+                                <div class="actions">
+
+                                    <a
+                                        href="/admin-download/{{ file[0] }}"
+                                        class="btn download"
+                                    >
+                                        Download
+                                    </a>
+
+
+                                    <form
+                                        action="/admin-delete-file/{{ file[0] }}"
+                                        method="POST"
+                                        style="display:inline;"
+                                        onsubmit="return confirm('Are you sure you want to permanently delete this file? This action cannot be undone.');"
+                                    >
+
+                                        <button
+                                            type="submit"
+                                            class="btn delete"
+                                        >
+                                            Delete
+                                        </button>
+
+                                    </form>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            {% else %}
+
+                <div class="empty">
+
+                    <div class="empty-icon">
+                        📁
+                    </div>
+
+                    <h3>No files available</h3>
+
+                    <p>
+                        No files have been uploaded to the vault yet.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <div class="security-note">
+
+            🔒 <strong>Admin Security:</strong>
+            Admin access allows authorized management of files belonging
+            to all users. All downloads are recorded in the file access logs.
+
+        </div>
+
+
+        <div class="bottom-links">
+
+            <a href="/dashboard" class="link-btn">
+                ← Back to Dashboard
+            </a>
+
+        </div>
+
+    </div>
 
 </body>
+
 </html>

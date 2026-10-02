@@ -439,6 +439,80 @@ def my_files():
         "my_files.html",
         files=files
     )
+@app.route("/download/<int:file_id>")
+def download_file(file_id):
+
+    if "username" not in session:
+        return redirect("/login")
+
+    connection = get_connection()
+
+    file = connection.execute(
+        """
+        SELECT filename, file_data
+        FROM stored_files
+        WHERE id = %s
+        AND username = %s
+        """,
+        (
+            file_id,
+            session["username"]
+        )
+    ).fetchone()
+
+    if file is None:
+        connection.close()
+        return "File not found or access denied.", 404
+
+    filename = file[0]
+    encrypted_data = file[1]
+
+    try:
+
+        key = os.environ.get("FERNET_KEY")
+
+        if not key:
+            raise RuntimeError("FERNET_KEY environment variable is not set.")
+
+        cipher = Fernet(key.encode())
+
+        decrypted_data = cipher.decrypt(encrypted_data)
+
+        connection.execute(
+            """
+            INSERT INTO file_access_logs
+            (username, ip_address, filename, timestamp)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                session["username"],
+                request.remote_addr,
+                filename,
+                datetime.now()
+            )
+        )
+
+        connection.commit()
+        connection.close()
+
+        from flask import Response
+
+        response = Response(
+            decrypted_data,
+            mimetype="application/octet-stream"
+        )
+
+        response.headers["Content-Disposition"] = (
+            f'attachment; filename="{filename}"'
+        )
+
+        return response
+
+    except Exception as e:
+
+        connection.close()
+
+        return f"Unable to download file: {e}", 500
 @app.route("/logout")
 def logout():
 

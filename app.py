@@ -3,9 +3,8 @@ import os
 import psycopg
 import secrets
 import hashlib
-import json
-import urllib.request
-import urllib.error
+import smtplib
+from email.message import EmailMessage
 
 from flask import Flask, render_template, request, redirect, session, send_file
 from database import create_database, get_connection
@@ -77,121 +76,106 @@ def admin_required():
 
 def send_otp_email(email, otp):
 
-    api_key = os.environ.get("RESEND_API_KEY")
+    smtp_host = os.environ.get("BREVO_SMTP_HOST")
+    smtp_port = int(os.environ.get("BREVO_SMTP_PORT", "587"))
+    smtp_login = os.environ.get("BREVO_SMTP_LOGIN")
+    smtp_password = os.environ.get("BREVO_SMTP_PASSWORD")
+    sender_email = os.environ.get("BREVO_SENDER_EMAIL")
+    sender_name = os.environ.get(
+        "BREVO_SENDER_NAME",
+        "Secure File Vault"
+    )
 
-    if not api_key:
-        print("RESEND ERROR: RESEND_API_KEY is missing.")
+    if not smtp_host:
         raise RuntimeError(
-            "RESEND_API_KEY environment variable is not set."
+            "BREVO_SMTP_HOST environment variable is not set."
         )
 
-    data = {
-        "from": "onboarding@resend.dev",
-        "to": [email],
-        "subject": "Secure File Vault - Login OTP",
-        "html": f"""
-        <html>
-        <body style="font-family: Arial, sans-serif;">
+    if not smtp_login:
+        raise RuntimeError(
+            "BREVO_SMTP_LOGIN environment variable is not set."
+        )
 
-            <h2>Secure File Vault</h2>
+    if not smtp_password:
+        raise RuntimeError(
+            "BREVO_SMTP_PASSWORD environment variable is not set."
+        )
 
-            <p>Your login verification code is:</p>
+    if not sender_email:
+        raise RuntimeError(
+            "BREVO_SENDER_EMAIL environment variable is not set."
+        )
 
-            <h1 style="letter-spacing: 5px;">{otp}</h1>
+    message = EmailMessage()
 
-            <p>
-                This OTP is valid for
-                <strong>5 minutes</strong>.
-            </p>
+    message["Subject"] = "Secure File Vault - Login OTP"
+    message["From"] = f"{sender_name} <{sender_email}>"
+    message["To"] = email
 
-            <p>
-                Do not share this OTP with anyone.
-            </p>
+    message.set_content(
+        f"""
+Secure File Vault
 
-            <p>
-                If you did not attempt to log in,
-                you can safely ignore this email.
-            </p>
+Your login verification code is:
 
-        </body>
-        </html>
-        """
-    }
+{otp}
 
-    request_data = json.dumps(data).encode("utf-8")
+This OTP is valid for 5 minutes.
 
-    email_request = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=request_data,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        },
-        method="POST"
+Do not share this OTP with anyone.
+
+If you did not attempt to log in, you can safely ignore this email.
+"""
     )
 
     try:
 
-        with urllib.request.urlopen(
-            email_request,
+        with smtplib.SMTP(
+            smtp_host,
+            smtp_port,
             timeout=15
-        ) as response:
+        ) as server:
 
-            response_body = response.read().decode(
-                "utf-8"
+            server.starttls()
+
+            server.login(
+                smtp_login,
+                smtp_password
             )
 
-            print(
-                f"RESEND SUCCESS: HTTP {response.status}"
-            )
-
-            print(
-                f"RESEND RESPONSE: {response_body}"
-            )
-
-            if response.status < 200 or response.status >= 300:
-
-                raise RuntimeError(
-                    f"Resend returned HTTP {response.status}"
-                )
-
-    except urllib.error.HTTPError as e:
-
-        error_body = e.read().decode(
-            "utf-8",
-            errors="replace"
-        )
+            server.send_message(message)
 
         print(
-            f"RESEND HTTP ERROR: {e.code}"
+            f"BREVO SUCCESS: OTP email sent to {email}"
         )
 
+    except smtplib.SMTPAuthenticationError as e:
+
         print(
-            f"RESEND ERROR RESPONSE: {error_body}"
+            f"BREVO AUTH ERROR: {e}"
         )
 
         raise RuntimeError(
-            f"Resend API error: HTTP {e.code}"
+            "Brevo SMTP authentication failed."
         )
 
-    except urllib.error.URLError as e:
+    except smtplib.SMTPException as e:
 
         print(
-            f"RESEND CONNECTION ERROR: {e.reason}"
+            f"BREVO SMTP ERROR: {e}"
         )
 
         raise RuntimeError(
-            "Unable to connect to email service."
+            "Brevo SMTP email sending failed."
         )
 
     except Exception as e:
 
         print(
-            f"RESEND UNKNOWN ERROR: {type(e).__name__}: {e}"
+            f"BREVO UNKNOWN ERROR: {type(e).__name__}: {e}"
         )
 
         raise
-
 
 def generate_and_send_otp(username, email):
 

@@ -75,12 +75,12 @@ def admin_required():
         and session.get("role") == "admin"
     )
 
-
 def send_otp_email(email, otp):
 
     api_key = os.environ.get("RESEND_API_KEY")
 
     if not api_key:
+        print("RESEND ERROR: RESEND_API_KEY is missing.")
         raise RuntimeError(
             "RESEND_API_KEY environment variable is not set."
         )
@@ -137,23 +137,60 @@ def send_otp_email(email, otp):
             timeout=15
         ) as response:
 
+            response_body = response.read().decode(
+                "utf-8"
+            )
+
+            print(
+                f"RESEND SUCCESS: HTTP {response.status}"
+            )
+
+            print(
+                f"RESEND RESPONSE: {response_body}"
+            )
+
             if response.status < 200 or response.status >= 300:
 
                 raise RuntimeError(
-                    "Unable to send OTP email."
+                    f"Resend returned HTTP {response.status}"
                 )
 
     except urllib.error.HTTPError as e:
 
-        raise RuntimeError(
-            f"Email service error: {e.code}"
+        error_body = e.read().decode(
+            "utf-8",
+            errors="replace"
         )
 
-    except urllib.error.URLError:
+        print(
+            f"RESEND HTTP ERROR: {e.code}"
+        )
+
+        print(
+            f"RESEND ERROR RESPONSE: {error_body}"
+        )
+
+        raise RuntimeError(
+            f"Resend API error: HTTP {e.code}"
+        )
+
+    except urllib.error.URLError as e:
+
+        print(
+            f"RESEND CONNECTION ERROR: {e.reason}"
+        )
 
         raise RuntimeError(
             "Unable to connect to email service."
         )
+
+    except Exception as e:
+
+        print(
+            f"RESEND UNKNOWN ERROR: {type(e).__name__}: {e}"
+        )
+
+        raise
 
 
 def generate_and_send_otp(username, email):

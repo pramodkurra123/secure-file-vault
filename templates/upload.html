@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload File - Secure File Vault</title>
+</head>
+
+<body>
+
+    <h1>Secure File Vault</h1>
+
+    <h2>Upload File</h2>
+
+    {% if error %}
+        <p>{{ error }}</p>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
+
+        <label>Select File:</label>
+        <input type="file" name="file" required>
+
+        <br><br>
+
+        <button type="submit">Upload and Encrypt</button>
+
+    </form>
+
+    <br>
+
+    <a href="/dashboard">Back to Dashboard</a>
+
+</body>
+</html>

@@ -1,6 +1,11 @@
 from datetime import datetime, timedelta, timezone
 import os
 import psycopg
+import secrets
+import hashlib
+import json
+import urllib.request
+import urllib.error
 
 from flask import Flask, render_template, request, redirect, session
 from database import create_database, get_connection
@@ -37,6 +42,66 @@ def to_ist(value):
     return value.astimezone(
         ZoneInfo("Asia/Kolkata")
     ).strftime("%d-%m-%Y %I:%M:%S %p")
+def send_otp_email(email, otp):
+
+    api_key = os.environ.get("RESEND_API_KEY")
+
+    if not api_key:
+        raise RuntimeError("RESEND_API_KEY environment variable is not set.")
+
+    data = {
+        "from": "onboarding@resend.dev",
+        "to": [email],
+        "subject": "Secure File Vault - Login OTP",
+        "html": f"""
+        <html>
+        <body style="font-family: Arial, sans-serif;">
+            <h2>Secure File Vault</h2>
+
+            <p>Your login verification code is:</p>
+
+            <h1 style="letter-spacing: 5px;">{otp}</h1>
+
+            <p>This OTP is valid for <strong>5 minutes</strong>.</p>
+
+            <p>Do not share this OTP with anyone.</p>
+
+            <p>If you did not attempt to log in, you can safely ignore this email.</p>
+        </body>
+        </html>
+        """
+    }
+
+    request_data = json.dumps(data).encode("utf-8")
+
+    request = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=request_data,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        },
+        method="POST"
+    )
+
+    try:
+
+        with urllib.request.urlopen(request, timeout=15) as response:
+
+            if response.status < 200 or response.status >= 300:
+                raise RuntimeError("Unable to send OTP email.")
+
+    except urllib.error.HTTPError as e:
+
+        raise RuntimeError(
+            f"Email service error: {e.code}"
+        )
+
+    except urllib.error.URLError:
+
+        raise RuntimeError(
+            "Unable to connect to email service."
+        )
 
 
 app = Flask(__name__)
@@ -66,7 +131,6 @@ def home():
 
     return redirect("/login")
 
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
@@ -81,7 +145,7 @@ def login():
 
         user = connection.execute(
             """
-            SELECT username, password, role
+            SELECT username, password, role, email
             FROM users
             WHERE username = %s
             """,
@@ -95,31 +159,106 @@ def login():
         five_minutes_ago = now - timedelta(minutes=5)
 
 
-        # Correct credentials are always allowed.
+        # Check password first.
 
         if user and check_password_hash(user[1], password):
 
+            email = user[3]
+
+            if not email:
+
+                connection.close()
+
+                return render_template(
+                    "login.html",
+                    error="No email address is registered for this account."
+                )
+
+
+            # Generate secure 6-digit OTP.
+
+            otp = f"{secrets.randbelow(1000000):06d}"
+
+            otp_hash = hashlib.sha256(
+                otp.encode()
+            ).hexdigest()
+
+
+            # Invalidate previous OTPs.
+
             connection.execute(
                 """
-                INSERT INTO login_attempts
-                (username, ip_address, timestamp, status)
-                VALUES (%s, %s, %s, %s)
+                UPDATE otp_codes
+                SET used = TRUE
+                WHERE username = %s
+                AND used = FALSE
+                """,
+                (username,)
+            )
+
+
+            # Store hashed OTP.
+
+            connection.execute(
+                """
+                INSERT INTO otp_codes
+                (username, otp_hash, created_at, expires_at, attempts, used)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (
                     username,
-                    ip_address,
+                    otp_hash,
                     now,
-                    "SUCCESS"
+                    now + timedelta(minutes=5),
+                    0,
+                    False
                 )
             )
+
 
             connection.commit()
             connection.close()
 
-            session["username"] = user[0]
-            session["role"] = user[2]
 
-            return redirect("/dashboard")
+            # Send OTP email.
+
+            try:
+
+                send_otp_email(
+                    email,
+                    otp
+                )
+
+            except Exception as e:
+
+                connection = get_connection()
+
+                connection.execute(
+                    """
+                    UPDATE otp_codes
+                    SET used = TRUE
+                    WHERE username = %s
+                    AND used = FALSE
+                    """,
+                    (username,)
+                )
+
+                connection.commit()
+                connection.close()
+
+                return render_template(
+                    "login.html",
+                    error="Unable to send OTP. Please try again."
+                )
+
+
+            # Store temporary authentication state.
+
+            session["otp_pending"] = True
+            session["otp_username"] = username
+            session["otp_role"] = user[2]
+
+            return redirect("/verify-otp")
 
 
         # Admin is never blocked.
@@ -197,9 +336,6 @@ def login():
 
         failed_count += 1
 
-
-        # Create a new alert exactly when the third
-        # failed attempt is reached.
 
         if failed_count == 3:
 

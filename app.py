@@ -415,6 +415,30 @@ def upload():
         return redirect("/my-files")
 
     return render_template("upload.html")
+@app.route("/my-files")
+def my_files():
+
+    if "username" not in session:
+        return redirect("/login")
+
+    connection = get_connection()
+
+    files = connection.execute(
+        """
+        SELECT id, filename, file_size, uploaded_at
+        FROM stored_files
+        WHERE username = %s
+        ORDER BY id DESC
+        """,
+        (session["username"],)
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "my_files.html",
+        files=files
+    )
 @app.route("/logout")
 def logout():
 

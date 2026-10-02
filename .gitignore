@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+
+.env
+
+secret.key
+vault.db
+
+protected_files/secret.txt
+protected_files/temp_secret.txt
+
+.DS_Store

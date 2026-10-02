@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Security Logs</title>
+</head>
+
+<body>
+
+    <h1>Security Logs</h1>
+
+    <table border="1">
+
+        <tr>
+            <th>Username</th>
+            <th>IP Address</th>
+            <th>Time</th>
+            <th>Status</th>
+        </tr>
+
+        {% for attempt in attempts %}
+
+        <tr>
+            <td>{{ attempt[0] }}</td>
+            <td>{{ attempt[1] }}</td>
+            <td>{{ attempt[2] }}</td>
+            <td>{{ attempt[3] }}</td>
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+    <br>
+
+    <a href="/dashboard">Back to Dashboard</a>
+
+</body>
+
+</html>

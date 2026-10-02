@@ -1,0 +1,5 @@
+Flask
+gunicorn
+cryptography
+psycopg[binary]
+Werkzeug

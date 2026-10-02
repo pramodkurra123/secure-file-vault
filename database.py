@@ -60,6 +60,17 @@ def create_database():
         )
     """)
 
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS stored_files (
+            id SERIAL PRIMARY KEY,
+            username TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            file_data BYTEA NOT NULL,
+            file_size BIGINT NOT NULL,
+            uploaded_at TIMESTAMP NOT NULL
+        )
+    """)
+
     admin_username = os.environ.get("ADMIN_USERNAME")
     admin_password = os.environ.get("ADMIN_PASSWORD")
 

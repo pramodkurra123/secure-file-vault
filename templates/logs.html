@@ -1,39 +1,387 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Security Logs</title>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Login Activity Logs - Secure File Vault</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #0b1120;
+            color: #e5e7eb;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            background: #111827;
+            border-bottom: 1px solid #243044;
+            padding: 18px 35px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-size: 21px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .brand span {
+            color: #38bdf8;
+        }
+
+        .admin-badge {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 4px 9px;
+            border-radius: 5px;
+            background: #7c3aed;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: bold;
+            vertical-align: middle;
+        }
+
+        .logout {
+            text-decoration: none;
+            color: #ffffff;
+            background: #dc2626;
+            padding: 9px 16px;
+            border-radius: 7px;
+            font-size: 14px;
+        }
+
+        .logout:hover {
+            background: #b91c1c;
+        }
+
+        .container {
+            max-width: 1150px;
+            margin: 45px auto;
+            padding: 0 25px;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 12px;
+            padding: 25px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px;
+            background: #172033;
+            color: #93c5fd;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 15px 14px;
+            border-top: 1px solid #243044;
+            color: #d1d5db;
+            font-size: 14px;
+        }
+
+        tr:hover td {
+            background: #151e30;
+        }
+
+        .username {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .ip {
+            color: #38bdf8;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .time {
+            color: #cbd5e1;
+            white-space: nowrap;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .success {
+            background: #052e16;
+            border: 1px solid #166534;
+            color: #86efac;
+        }
+
+        .failed {
+            background: #450a0a;
+            border: 1px solid #7f1d1d;
+            color: #fca5a5;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 50px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-icon {
+            font-size: 42px;
+            margin-bottom: 12px;
+        }
+
+        .security-note {
+            margin-top: 22px;
+            padding: 15px 17px;
+            border-radius: 8px;
+            background: #0f172a;
+            border: 1px solid #1e3a5f;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .security-note strong {
+            color: #38bdf8;
+        }
+
+        .bottom-links {
+            margin-top: 25px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .link-btn {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+
+        .link-btn:hover {
+            background: #273449;
+            color: #ffffff;
+        }
+
+        @media (max-width: 700px) {
+
+            .topbar {
+                padding: 16px 20px;
+            }
+
+            .container {
+                margin: 30px auto;
+                padding: 0 15px;
+            }
+
+            .header h1 {
+                font-size: 25px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+        }
+
+    </style>
+
 </head>
 
 <body>
 
-    <h1>Security Logs</h1>
+    <div class="topbar">
 
-    <table border="1">
+        <div class="brand">
+            🔐 Secure <span>File Vault</span>
+            <span class="admin-badge">ADMIN</span>
+        </div>
 
-        <tr>
-            <th>Username</th>
-            <th>IP Address</th>
-            <th>Time</th>
-            <th>Status</th>
-        </tr>
+        <a href="/logout" class="logout">
+            Logout
+        </a>
 
-        {% for attempt in attempts %}
+    </div>
 
-        <tr>
-            <td>{{ attempt[0] }}</td>
-            <td>{{ attempt[1] }}</td>
-            <td>{{ attempt[2] }}</td>
-            <td>{{ attempt[3] }}</td>
-        </tr>
 
-        {% endfor %}
+    <div class="container">
 
-    </table>
+        <div class="header">
 
-    <br>
+            <h1>Login Activity Logs</h1>
 
-    <a href="/dashboard">Back to Dashboard</a>
+            <p>
+                Monitor successful and failed authentication attempts.
+            </p>
+
+        </div>
+
+
+        <div class="card">
+
+            {% if attempts %}
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Username
+                            </th>
+
+                            <th>
+                                IP Address
+                            </th>
+
+                            <th>
+                                Timestamp
+                            </th>
+
+                            <th>
+                                Status
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for attempt in attempts %}
+
+                        <tr>
+
+                            <td class="username">
+                                {{ attempt[0] }}
+                            </td>
+
+
+                            <td class="ip">
+                                {{ attempt[1] }}
+                            </td>
+
+
+                            <td class="time">
+                                {{ attempt[2]|ist }}
+                            </td>
+
+
+                            <td>
+
+                                {% if attempt[3] == "SUCCESS" %}
+
+                                    <span class="status success">
+                                        SUCCESS
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="status failed">
+                                        FAILED
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            {% else %}
+
+                <div class="empty">
+
+                    <div class="empty-icon">
+                        📋
+                    </div>
+
+                    <h3>No login activity</h3>
+
+                    <p>
+                        No authentication attempts have been recorded yet.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <div class="security-note">
+
+            🔎 <strong>Security Monitoring:</strong>
+            Login activity records include the username, client IP address,
+            timestamp, and authentication status. Failed attempts are
+            monitored for suspicious login activity.
+
+        </div>
+
+
+        <div class="bottom-links">
+
+            <a href="/alerts" class="link-btn">
+                🚨 Security Alerts
+            </a>
+
+            <a href="/dashboard" class="link-btn">
+                ← Back to Dashboard
+            </a>
+
+        </div>
+
+    </div>
 
 </body>
 

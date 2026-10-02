@@ -2,11 +2,13 @@ from datetime import datetime, timedelta
 import os
 import psycopg
 
-from flask import Flask, render_template, request, redirect, session
+from flask import Flask, render_template, request, redirect, session, flash
 
 from database import create_database, get_connection
 from werkzeug.security import check_password_hash, generate_password_hash
 from security import decrypt_file
+from cryptography.fernet import Fernet
+from werkzeug.utils import secure_filename
 
 
 app = Flask(__name__)
@@ -349,7 +351,70 @@ def users():
         error=error
     )
 
+@app.route("/upload", methods=["GET", "POST"])
+def upload():
 
+    if "username" not in session:
+        return redirect("/login")
+
+    if request.method == "POST":
+
+        file = request.files.get("file")
+
+        if not file or file.filename == "":
+            return render_template(
+                "upload.html",
+                error="Please select a file."
+            )
+
+        filename = secure_filename(file.filename)
+
+        if filename == "":
+            return render_template(
+                "upload.html",
+                error="Invalid filename."
+            )
+
+        data = file.read()
+
+        if len(data) > 5 * 1024 * 1024:
+            return render_template(
+                "upload.html",
+                error="File size must be 5 MB or less."
+            )
+
+        key = os.environ.get("FERNET_KEY")
+
+        if not key:
+            return "FERNET_KEY environment variable is not set.", 500
+
+        cipher = Fernet(key.encode())
+
+        encrypted_data = cipher.encrypt(data)
+
+        connection = get_connection()
+
+        connection.execute(
+            """
+            INSERT INTO stored_files
+            (username, filename, file_data, file_size, uploaded_at)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                session["username"],
+                filename,
+                encrypted_data,
+                len(data),
+                datetime.now()
+            )
+        )
+
+        connection.commit()
+        connection.close()
+
+        return redirect("/my-files")
+
+    return render_template("upload.html")
 @app.route("/logout")
 def logout():
 

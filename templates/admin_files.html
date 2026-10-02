@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin File Management</title>
+</head>
+
+<body>
+
+    <h1>Secure File Vault</h1>
+
+    <h2>Admin File Management</h2>
+
+    {% if files %}
+
+        <table border="1" cellpadding="8">
+
+            <tr>
+                <th>File ID</th>
+                <th>Username</th>
+                <th>File Name</th>
+                <th>Size</th>
+                <th>Uploaded At</th>
+                <th>Action</th>
+            </tr>
+
+            {% for file in files %}
+
+            <tr>
+
+                <td>{{ file[0] }}</td>
+
+                <td>{{ file[1] }}</td>
+
+                <td>{{ file[2] }}</td>
+
+                <td>{{ file[3] }} bytes</td>
+
+                <td>{{ file[4] }}</td>
+
+                <td>
+                    <a href="/admin-download/{{ file[0] }}">
+                        Download
+                    </a>
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </table>
+
+    {% else %}
+
+        <p>No uploaded files found.</p>
+
+    {% endif %}
+
+    <br>
+
+    <a href="/upload">Upload File</a>
+
+    <br><br>
+
+    <a href="/dashboard">Back to Dashboard</a>
+
+</body>
+</html>

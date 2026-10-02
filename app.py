@@ -90,69 +90,16 @@ def login():
 
         is_admin = user is not None and user[2] == "admin"
 
+        now = utc_now()
+
         five_minutes_ago = (
-            utc_now() - timedelta(minutes=5)
+            now - timedelta(minutes=5)
         )
 
-        if not is_admin:
 
-            failed_count = connection.execute(
-                """
-                SELECT COUNT(*)
-                FROM login_attempts
-                WHERE username = %s
-                AND ip_address = %s
-                AND status = 'FAILED'
-                AND timestamp >= %s
-                """,
-                (
-                    username,
-                    ip_address,
-                    five_minutes_ago
-                )
-            ).fetchone()[0]
-
-            if failed_count >= 3:
-
-                existing_alert = connection.execute(
-                    """
-                    SELECT id
-                    FROM alerts
-                    WHERE ip_address = %s
-                    AND message LIKE %s
-                    AND timestamp >= %s
-                    """,
-                    (
-                        ip_address,
-                        "%temporarily blocked%",
-                        five_minutes_ago
-                    )
-                ).fetchone()
-
-                if existing_alert is None:
-
-                    connection.execute(
-                        """
-                        INSERT INTO alerts
-                        (ip_address, message, timestamp)
-                        VALUES (%s, %s, %s)
-                        """,
-                        (
-                            ip_address,
-                            "User account temporarily blocked after three failed login attempts from this IP.",
-                            utc_now()
-                        )
-                    )
-
-                    connection.commit()
-
-                connection.close()
-
-                return render_template(
-                    "login.html",
-                    error="This account is temporarily blocked. Try again after 5 minutes."
-                )
-
+        # Correct credentials are always allowed.
+        # This also allows another legitimate user
+        # from the same IP to log in.
 
         if user and check_password_hash(user[1], password):
 
@@ -165,7 +112,7 @@ def login():
                 (
                     username,
                     ip_address,
-                    utc_now(),
+                    now,
                     "SUCCESS"
                 )
             )
@@ -179,41 +126,72 @@ def login():
             return redirect("/dashboard")
 
 
-        connection.execute(
-            """
-            INSERT INTO login_attempts
-            (username, ip_address, timestamp, status)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (
-                username,
-                ip_address,
-                utc_now(),
-                "FAILED"
-            )
-        )
+        # Admin is never blocked.
 
+        if is_admin:
 
-        if not is_admin:
-
-            failed_count = connection.execute(
+            connection.execute(
                 """
-                SELECT COUNT(*)
-                FROM login_attempts
-                WHERE username = %s
-                AND ip_address = %s
-                AND status = 'FAILED'
-                AND timestamp >= %s
+                INSERT INTO login_attempts
+                (username, ip_address, timestamp, status)
+                VALUES (%s, %s, %s, %s)
                 """,
                 (
                     username,
                     ip_address,
+                    now,
+                    "FAILED"
+                )
+            )
+
+            connection.commit()
+            connection.close()
+
+            return render_template(
+                "login.html",
+                error="Invalid username or password"
+            )
+
+
+        # Check failed attempts from this IP.
+
+        failed_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM login_attempts
+            WHERE ip_address = %s
+            AND status = 'FAILED'
+            AND timestamp >= %s
+            """,
+            (
+                ip_address,
+                five_minutes_ago
+            )
+        ).fetchone()[0]
+
+
+        # If this IP already has 3 failed attempts,
+        # reject another invalid login attempt.
+
+        if failed_count >= 3:
+
+            existing_alert = connection.execute(
+                """
+                SELECT id
+                FROM alerts
+                WHERE ip_address = %s
+                AND message LIKE %s
+                AND timestamp >= %s
+                """,
+                (
+                    ip_address,
+                    "%temporarily blocked%",
                     five_minutes_ago
                 )
-            ).fetchone()[0]
+            ).fetchone()
 
 
-            if failed_count == 3:
+            if existing_alert is None:
 
                 connection.execute(
                     """
@@ -223,14 +201,63 @@ def login():
                     """,
                     (
                         ip_address,
-                        "Three failed login attempts detected for a user account. Account temporarily blocked for 5 minutes.",
-                        utc_now()
+                        "Three failed login attempts detected. Further invalid login attempts from this IP are temporarily blocked for 5 minutes.",
+                        now
                     )
                 )
+
+                connection.commit()
+
+
+            connection.close()
+
+            return render_template(
+                "login.html",
+                error="This IP address is temporarily blocked for invalid login attempts. Try again after 5 minutes."
+            )
+
+
+        # Record the current failed attempt.
+
+        connection.execute(
+            """
+            INSERT INTO login_attempts
+            (username, ip_address, timestamp, status)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                username,
+                ip_address,
+                now,
+                "FAILED"
+            )
+        )
+
+
+        failed_count += 1
+
+
+        # Create alert when the third failed attempt occurs.
+
+        if failed_count == 3:
+
+            connection.execute(
+                """
+                INSERT INTO alerts
+                (ip_address, message, timestamp)
+                VALUES (%s, %s, %s)
+                """,
+                (
+                    ip_address,
+                    "Three failed login attempts detected. Further invalid login attempts from this IP are temporarily blocked for 5 minutes.",
+                    now
+                )
+            )
 
 
         connection.commit()
         connection.close()
+
 
         return render_template(
             "login.html",

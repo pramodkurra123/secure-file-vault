@@ -1,45 +1,464 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
-    <title>Security Alerts</title>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Security Alerts - Secure File Vault</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #0b1120;
+            color: #e5e7eb;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            background: #111827;
+            border-bottom: 1px solid #243044;
+            padding: 18px 35px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-size: 21px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .brand span {
+            color: #38bdf8;
+        }
+
+        .admin-badge {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 4px 9px;
+            border-radius: 5px;
+            background: #7c3aed;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: bold;
+            vertical-align: middle;
+        }
+
+        .logout {
+            text-decoration: none;
+            color: #ffffff;
+            background: #dc2626;
+            padding: 9px 16px;
+            border-radius: 7px;
+            font-size: 14px;
+        }
+
+        .logout:hover {
+            background: #b91c1c;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 45px auto;
+            padding: 0 25px;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-bottom: 25px;
+        }
+
+        .summary-card {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .summary-title {
+            color: #94a3b8;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .summary-value {
+            color: #ffffff;
+            font-size: 25px;
+            font-weight: bold;
+        }
+
+        .alert-box {
+            background: #111827;
+            border: 1px solid #7f1d1d;
+            border-radius: 12px;
+            padding: 25px;
+        }
+
+        .alert-item {
+            background: #170f16;
+            border: 1px solid #4c1d2a;
+            border-radius: 9px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .alert-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 12px;
+        }
+
+        .alert-title {
+            color: #fca5a5;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .alert-badge {
+            background: #450a0a;
+            border: 1px solid #7f1d1d;
+            color: #fca5a5;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .message {
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+        }
+
+        .detail {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .detail-label {
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .detail-value {
+            color: #38bdf8;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .time {
+            color: #cbd5e1;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 55px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-icon {
+            font-size: 45px;
+            margin-bottom: 15px;
+        }
+
+        .empty h3 {
+            color: #ffffff;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+
+        .security-note {
+            margin-top: 22px;
+            padding: 16px 18px;
+            border-radius: 8px;
+            background: #0f172a;
+            border: 1px solid #1e3a5f;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .security-note strong {
+            color: #38bdf8;
+        }
+
+        .bottom-links {
+            margin-top: 25px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .link-btn {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+
+        .link-btn:hover {
+            background: #273449;
+            color: #ffffff;
+        }
+
+        @media (max-width: 700px) {
+
+            .topbar {
+                padding: 16px 20px;
+            }
+
+            .container {
+                margin: 30px auto;
+                padding: 0 15px;
+            }
+
+            .header h1 {
+                font-size: 25px;
+            }
+
+            .summary {
+                grid-template-columns: 1fr;
+            }
+
+            .alert-box {
+                padding: 15px;
+            }
+
+            .alert-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+        }
+
+    </style>
+
 </head>
 
 <body>
 
-    <h1>Security Alerts</h1>
+    <div class="topbar">
 
-    {% if alerts %}
+        <div class="brand">
+            🔐 Secure <span>File Vault</span>
+            <span class="admin-badge">ADMIN</span>
+        </div>
 
-    <table border="1">
+        <a href="/logout" class="logout">
+            Logout
+        </a>
 
-        <tr>
-            <th>IP Address</th>
-            <th>Alert</th>
-            <th>Time</th>
-        </tr>
+    </div>
 
-        {% for alert in alerts %}
 
-        <tr>
-            <td>{{ alert[0] }}</td>
-            <td>{{ alert[1] }}</td>
-            <td>{{ alert[2] }}</td>
-        </tr>
+    <div class="container">
 
-        {% endfor %}
+        <div class="header">
 
-    </table>
+            <h1>Security Alerts</h1>
 
-    {% else %}
+            <p>
+                Review detected authentication events and temporary IP blocks.
+            </p>
 
-    <p>No security alerts.</p>
+        </div>
 
-    {% endif %}
 
-    <br>
+        <div class="summary">
 
-    <a href="/dashboard">Back to Dashboard</a>
+            <div class="summary-card">
+
+                <div class="summary-title">
+                    Total Alerts
+                </div>
+
+                <div class="summary-value">
+                    {{ alerts|length }}
+                </div>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <div class="summary-title">
+                    Detection Rule
+                </div>
+
+                <div class="summary-value">
+                    3 Attempts
+                </div>
+
+            </div>
+
+
+            <div class="summary-card">
+
+                <div class="summary-title">
+                    Block Duration
+                </div>
+
+                <div class="summary-value">
+                    5 Minutes
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="alert-box">
+
+            {% if alerts %}
+
+                {% for alert in alerts %}
+
+                <div class="alert-item">
+
+                    <div class="alert-header">
+
+                        <div class="alert-title">
+                            🚨 Suspicious Login Activity
+                        </div>
+
+                        <div class="alert-badge">
+                            SECURITY ALERT
+                        </div>
+
+                    </div>
+
+
+                    <div class="message">
+                        {{ alert[1] }}
+                    </div>
+
+
+                    <div class="details">
+
+                        <div class="detail">
+
+                            <span class="detail-label">
+                                IP Address
+                            </span>
+
+                            <span class="detail-value">
+                                {{ alert[0] }}
+                            </span>
+
+                        </div>
+
+
+                        <div class="detail">
+
+                            <span class="detail-label">
+                                Detected At
+                            </span>
+
+                            <span class="detail-value time">
+                                {{ alert[2]|ist }}
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                {% endfor %}
+
+            {% else %}
+
+                <div class="empty">
+
+                    <div class="empty-icon">
+                        🛡️
+                    </div>
+
+                    <h3>No Security Alerts</h3>
+
+                    <p>
+                        No suspicious authentication activity has been detected.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <div class="security-note">
+
+            🛡️ <strong>Protection Rule:</strong>
+            After three failed login attempts from the same IP address
+            within five minutes, the IP address is temporarily blocked
+            for five minutes. Administrator access is excluded from
+            this temporary blocking rule.
+
+        </div>
+
+
+        <div class="bottom-links">
+
+            <a href="/logs" class="link-btn">
+                📋 Login Activity Logs
+            </a>
+
+            <a href="/dashboard" class="link-btn">
+                ← Back to Dashboard
+            </a>
+
+        </div>
+
+    </div>
 
 </body>
 

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Encryption Illustration | Secure File Vault</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0b1120;
+            color: #e5e7eb;
+        }
+
+        .topbar {
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 35px;
+            background: #111827;
+            border-bottom: 1px solid #263244;
+        }
+
+        .logo {
+            font-size: 21px;
+            font-weight: bold;
+            color: #f3f4f6;
+        }
+
+        .logo span {
+            color: #38bdf8;
+        }
+
+        .back {
+            text-decoration: none;
+            color: #cbd5e1;
+            border: 1px solid #334155;
+            padding: 9px 16px;
+            border-radius: 8px;
+        }
+
+        .back:hover {
+            background: #1e293b;
+        }
+
+        .container {
+            max-width: 1150px;
+            margin: 40px auto;
+            padding: 0 25px;
+        }
+
+        .heading {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .heading h1 {
+            margin: 0 0 10px;
+            font-size: 32px;
+        }
+
+        .heading p {
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        .section {
+            background: #111827;
+            border: 1px solid #263244;
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            margin-top: 0;
+            font-size: 21px;
+            color: #f8fafc;
+        }
+
+        .section-description {
+            color: #94a3b8;
+            margin-bottom: 25px;
+        }
+
+        .flow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .step {
+            width: 175px;
+            min-height: 105px;
+            background: #172033;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 18px 12px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .step .icon {
+            font-size: 27px;
+            margin-bottom: 9px;
+        }
+
+        .step strong {
+            font-size: 14px;
+            color: #f8fafc;
+        }
+
+        .step small {
+            margin-top: 6px;
+            color: #94a3b8;
+            line-height: 1.4;
+        }
+
+        .arrow {
+            font-size: 27px;
+            color: #38bdf8;
+            font-weight: bold;
+        }
+
+        .encryption {
+            border-color: #0ea5e9;
+        }
+
+        .storage {
+            border-color: #8b5cf6;
+        }
+
+        .decryption {
+            border-color: #22c55e;
+        }
+
+        .database {
+            border-color: #f59e0b;
+        }
+
+        .flow-title {
+            text-align: center;
+            margin: 25px 0 18px;
+            color: #cbd5e1;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .key-box {
+            margin-top: 25px;
+            padding: 18px;
+            border-radius: 10px;
+            background: #0f172a;
+            border: 1px dashed #475569;
+            text-align: center;
+        }
+
+        .key-box strong {
+            color: #38bdf8;
+        }
+
+        .note {
+            margin-top: 20px;
+            padding: 15px;
+            border-left: 3px solid #38bdf8;
+            background: #0f172a;
+            color: #cbd5e1;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .legend-item {
+            background: #0f172a;
+            border: 1px solid #263244;
+            border-radius: 10px;
+            padding: 17px;
+        }
+
+        .legend-item strong {
+            display: block;
+            margin-bottom: 7px;
+            color: #f8fafc;
+        }
+
+        .legend-item p {
+            margin: 0;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .footer {
+            text-align: center;
+            color: #64748b;
+            padding: 15px;
+            font-size: 13px;
+        }
+
+        @media (max-width: 800px) {
+
+            .topbar {
+                padding: 0 18px;
+            }
+
+            .container {
+                margin-top: 25px;
+            }
+
+            .section {
+                padding: 20px;
+            }
+
+            .arrow {
+                transform: rotate(90deg);
+            }
+
+            .legend {
+                grid-template-columns: 1fr;
+            }
+
+            .step {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <div class="topbar">
+
+        <div class="logo">
+            🔐 Secure <span>File Vault</span>
+        </div>
+
+        <a href="/dashboard" class="back">
+            ← Dashboard
+        </a>
+
+    </div>
+
+
+    <div class="container">
+
+        <div class="heading">
+
+            <h1>🔐 Encryption Illustration</h1>
+
+            <p>
+                Visual representation of how files are encrypted, stored,
+                decrypted and accessed in Secure File Vault.
+            </p>
+
+        </div>
+
+
+        <!-- USER UPLOAD FLOW -->
+
+        <div class="section">
+
+            <h2>1. User File Encryption Flow</h2>
+
+            <p class="section-description">
+                This is the process used when a logged-in user uploads a file.
+            </p>
+
+            <div class="flow">
+
+                <div class="step">
+                    <div class="icon">👤</div>
+                    <strong>User</strong>
+                    <small>Logged-in user</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step">
+                    <div class="icon">📁</div>
+                    <strong>Select File</strong>
+                    <small>User uploads a file</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step">
+                    <div class="icon">⚙️</div>
+                    <strong>Flask Application</strong>
+                    <small>Receives file data</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step encryption">
+                    <div class="icon">🔒</div>
+                    <strong>Fernet Encryption</strong>
+                    <small>File data is encrypted</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step storage database">
+                    <div class="icon">🗄️</div>
+                    <strong>PostgreSQL</strong>
+                    <small>Encrypted bytes stored</small>
+                </div>
+
+            </div>
+
+
+            <div class="key-box">
+
+                🔑 Encryption uses the application's
+                <strong>FERNET_KEY</strong>
+
+            </div>
+
+        </div>
+
+
+        <!-- DOWNLOAD FLOW -->
+
+        <div class="section">
+
+            <h2>2. File Decryption & Download Flow</h2>
+
+            <p class="section-description">
+                When the owner downloads a file, the encrypted data is decrypted
+                only after authentication and ownership verification.
+            </p>
+
+            <div class="flow">
+
+                <div class="step">
+                    <div class="icon">👤</div>
+                    <strong>Authenticated User</strong>
+                    <small>Requests download</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step">
+                    <div class="icon">🛡️</div>
+                    <strong>Access Check</strong>
+                    <small>Authentication + ownership</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step storage">
+                    <div class="icon">🗄️</div>
+                    <strong>Encrypted Data</strong>
+                    <small>Retrieved from PostgreSQL</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step decryption">
+                    <div class="icon">🔓</div>
+                    <strong>Fernet Decryption</strong>
+                    <small>Data decrypted in memory</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step">
+                    <div class="icon">⬇️</div>
+                    <strong>File Download</strong>
+                    <small>Decrypted file sent to user</small>
+                </div>
+
+            </div>
+
+
+            <div class="note">
+
+                <strong>Security:</strong>
+                Uploaded files are stored as encrypted data in PostgreSQL.
+                The application does not store the original uploaded plaintext
+                file on disk or in the database.
+
+            </div>
+
+        </div>
+
+
+        <!-- PROTECTED DEMO FILE FLOW -->
+
+        <div class="section">
+
+            <h2>3. Protected Demo File Flow</h2>
+
+            <p class="section-description">
+                The application's demonstration file uses a separate file-based
+                encryption flow.
+            </p>
+
+            <div class="flow">
+
+                <div class="step storage">
+                    <div class="icon">📦</div>
+                    <strong>secret.enc</strong>
+                    <small>Encrypted demo file</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step">
+                    <div class="icon">🛡️</div>
+                    <strong>Authenticated Access</strong>
+                    <small>User opens illustration</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step decryption">
+                    <div class="icon">🔓</div>
+                    <strong>Fernet Decryption</strong>
+                    <small>Encrypted file decrypted</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step">
+                    <div class="icon">📄</div>
+                    <strong>Temporary Plaintext</strong>
+                    <small>Content processed temporarily</small>
+                </div>
+
+                <div class="arrow">→</div>
+
+                <div class="step">
+                    <div class="icon">🗑️</div>
+                    <strong>Temporary File Deleted</strong>
+                    <small>Plaintext removed</small>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- LEGEND -->
+
+        <div class="section">
+
+            <h2>Security Components</h2>
+
+            <div class="legend">
+
+                <div class="legend-item">
+                    <strong>🔑 Fernet Key</strong>
+                    <p>
+                        Secret encryption key used to encrypt and decrypt
+                        protected file data.
+                    </p>
+                </div>
+
+                <div class="legend-item">
+                    <strong>🗄️ PostgreSQL</strong>
+                    <p>
+                        Stores uploaded files as encrypted BYTEA data together
+                        with file metadata.
+                    </p>
+                </div>
+
+                <div class="legend-item">
+                    <strong>🛡️ Access Control</strong>
+                    <p>
+                        Authentication and ownership checks control who can
+                        access uploaded files.
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="footer">
+            Secure File Vault • Encryption & Data Protection Illustration
+        </div>
+
+    </div>
+
+</body>
+</html>

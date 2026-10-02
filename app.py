@@ -535,6 +535,76 @@ def admin_files():
         "admin_files.html",
         files=files
     )
+@app.route("/admin-download/<int:file_id>")
+def admin_download(file_id):
+
+    if "username" not in session or session["role"] != "admin":
+        return "Access denied", 403
+
+    connection = get_connection()
+
+    file = connection.execute(
+        """
+        SELECT filename, file_data
+        FROM stored_files
+        WHERE id = %s
+        """,
+        (file_id,)
+    ).fetchone()
+
+    if file is None:
+        connection.close()
+        return "File not found.", 404
+
+    filename = file[0]
+    encrypted_data = file[1]
+
+    try:
+
+        key = os.environ.get("FERNET_KEY")
+
+        if not key:
+            raise RuntimeError("FERNET_KEY environment variable is not set.")
+
+        cipher = Fernet(key.encode())
+
+        decrypted_data = cipher.decrypt(encrypted_data)
+
+        connection.execute(
+            """
+            INSERT INTO file_access_logs
+            (username, ip_address, filename, timestamp)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                session["username"],
+                request.remote_addr,
+                filename,
+                datetime.now()
+            )
+        )
+
+        connection.commit()
+        connection.close()
+
+        from flask import Response
+
+        response = Response(
+            decrypted_data,
+            mimetype="application/octet-stream"
+        )
+
+        response.headers["Content-Disposition"] = (
+            f'attachment; filename="{filename}"'
+        )
+
+        return response
+
+    except Exception as e:
+
+        connection.close()
+
+        return f"Unable to download file: {e}", 500
 @app.route("/logout")
 def logout():
 

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 import os
 import psycopg
 
-from flask import Flask, render_template, request, redirect, session, flash
+from flask import Flask, render_template, request, redirect, session
 from database import create_database, get_connection
 from werkzeug.security import check_password_hash, generate_password_hash
 from security import decrypt_file
@@ -72,7 +72,7 @@ def login():
 
     if request.method == "POST":
 
-        username = request.form["username"]
+        username = request.form["username"].strip()
         password = request.form["password"]
 
         ip_address = get_client_ip()
@@ -100,11 +100,13 @@ def login():
                 """
                 SELECT COUNT(*)
                 FROM login_attempts
-                WHERE ip_address = %s
+                WHERE username = %s
+                AND ip_address = %s
                 AND status = 'FAILED'
                 AND timestamp >= %s
                 """,
                 (
+                    username,
                     ip_address,
                     five_minutes_ago
                 )
@@ -117,10 +119,12 @@ def login():
                     SELECT id
                     FROM alerts
                     WHERE ip_address = %s
+                    AND message LIKE %s
                     AND timestamp >= %s
                     """,
                     (
                         ip_address,
+                        "%temporarily blocked%",
                         five_minutes_ago
                     )
                 ).fetchone()
@@ -135,7 +139,7 @@ def login():
                         """,
                         (
                             ip_address,
-                            "Three failed login attempts detected. IP address temporarily blocked for 5 minutes.",
+                            "User account temporarily blocked after three failed login attempts from this IP.",
                             utc_now()
                         )
                     )
@@ -146,7 +150,7 @@ def login():
 
                 return render_template(
                     "login.html",
-                    error="This IP address is temporarily blocked. Try again after 5 minutes."
+                    error="This account is temporarily blocked. Try again after 5 minutes."
                 )
 
 
@@ -196,11 +200,13 @@ def login():
                 """
                 SELECT COUNT(*)
                 FROM login_attempts
-                WHERE ip_address = %s
+                WHERE username = %s
+                AND ip_address = %s
                 AND status = 'FAILED'
                 AND timestamp >= %s
                 """,
                 (
+                    username,
                     ip_address,
                     five_minutes_ago
                 )
@@ -217,7 +223,7 @@ def login():
                     """,
                     (
                         ip_address,
-                        "Three failed login attempts detected. IP address temporarily blocked for 5 minutes.",
+                        "Three failed login attempts detected for a user account. Account temporarily blocked for 5 minutes.",
                         utc_now()
                     )
                 )
@@ -244,6 +250,17 @@ def dashboard():
     return render_template(
         "dashboard.html",
         username=session["username"]
+    )
+
+
+@app.route("/encryption-flow")
+def encryption_flow():
+
+    if "username" not in session:
+        return redirect("/login")
+
+    return render_template(
+        "encryption_flow.html"
     )
 
 
@@ -942,13 +959,7 @@ def alerts():
         "alerts.html",
         alerts=alerts
     )
-@app.route("/encryption-flow")
-def encryption_flow():
 
-    if "username" not in session:
-        return redirect("/login")
-
-    return render_template("encryption_flow.html")
 
 if __name__ == "__main__":
 

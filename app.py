@@ -942,7 +942,13 @@ def alerts():
         "alerts.html",
         alerts=alerts
     )
+@app.route("/encryption-flow")
+def encryption_flow():
 
+    if "username" not in session:
+        return redirect("/login")
+
+    return render_template("encryption_flow.html")
 
 if __name__ == "__main__":
 

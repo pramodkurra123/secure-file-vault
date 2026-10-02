@@ -1,21 +1,362 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Protected File</title>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Protected File - Secure File Vault</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #0b1120;
+            color: #e5e7eb;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            background: #111827;
+            border-bottom: 1px solid #243044;
+            padding: 18px 35px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-size: 21px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .brand span {
+            color: #38bdf8;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-badge {
+            padding: 5px 10px;
+            border-radius: 5px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #93c5fd;
+            font-size: 12px;
+        }
+
+        .logout {
+            text-decoration: none;
+            color: #ffffff;
+            background: #dc2626;
+            padding: 9px 16px;
+            border-radius: 7px;
+            font-size: 14px;
+        }
+
+        .logout:hover {
+            background: #b91c1c;
+        }
+
+        .container {
+            max-width: 950px;
+            margin: 55px auto;
+            padding: 0 25px;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        .file-card {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .file-header {
+            padding: 22px 25px;
+            background: #172033;
+            border-bottom: 1px solid #243044;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .file-name {
+            color: #ffffff;
+            font-size: 17px;
+            font-weight: bold;
+        }
+
+        .encrypted-badge {
+            padding: 6px 11px;
+            border-radius: 5px;
+            background: #052e16;
+            border: 1px solid #166534;
+            color: #86efac;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .content {
+            padding: 30px 25px;
+        }
+
+        .content-label {
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .file-content {
+            background: #080d18;
+            border: 1px solid #243044;
+            border-radius: 8px;
+            padding: 22px;
+            min-height: 180px;
+            color: #d1d5db;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 14px;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-x: auto;
+        }
+
+        .security-panel {
+            margin-top: 20px;
+            padding: 18px;
+            background: #0f172a;
+            border: 1px solid #1e3a5f;
+            border-radius: 8px;
+        }
+
+        .security-title {
+            color: #38bdf8;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .security-text {
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            color: #86efac;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+
+        .bottom-links {
+            margin-top: 25px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .link-btn {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+
+        .link-btn:hover {
+            background: #273449;
+            color: #ffffff;
+        }
+
+        @media (max-width: 700px) {
+
+            .topbar {
+                padding: 16px 20px;
+            }
+
+            .user-info {
+                gap: 8px;
+            }
+
+            .user-badge {
+                display: none;
+            }
+
+            .container {
+                margin: 35px auto;
+                padding: 0 15px;
+            }
+
+            .header h1 {
+                font-size: 25px;
+            }
+
+            .file-header {
+                padding: 18px;
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .content {
+                padding: 20px 18px;
+            }
+
+            .file-content {
+                padding: 16px;
+                font-size: 13px;
+            }
+
+        }
+
+    </style>
+
 </head>
+
 <body>
 
-    <h1>🔐 Protected File</h1>
+    <div class="topbar">
 
-    <p>This file was decrypted after successful authentication.</p>
+        <div class="brand">
+            🔐 Secure <span>File Vault</span>
+        </div>
 
-    <hr>
+        <div class="user-info">
 
-    <pre>{{ content }}</pre>
+            <div class="user-badge">
+                👤 {{ session["username"] }}
+            </div>
 
-    <hr>
+            <a href="/logout" class="logout">
+                Logout
+            </a>
 
-    <a href="/dashboard">Back to Dashboard</a>
+        </div>
+
+    </div>
+
+
+    <div class="container">
+
+        <div class="header">
+
+            <h1>Protected File</h1>
+
+            <p>
+                Securely viewing decrypted content from the encrypted vault.
+            </p>
+
+        </div>
+
+
+        <div class="file-card">
+
+            <div class="file-header">
+
+                <div class="file-name">
+                    🔐 secret.enc
+                </div>
+
+                <div class="encrypted-badge">
+                    ENCRYPTED STORAGE
+                </div>
+
+            </div>
+
+
+            <div class="content">
+
+                <div class="content-label">
+                    Decrypted File Content
+                </div>
+
+                <div class="file-content">{{ content }}</div>
+
+
+                <div class="security-panel">
+
+                    <div class="security-title">
+                        🛡️ Secure File Access
+                    </div>
+
+                    <div class="security-text">
+                        The file is stored in encrypted form and is decrypted
+                        only when an authenticated user accesses it. The
+                        temporary decrypted copy is removed after the content
+                        is read.
+                    </div>
+
+                    <div class="status">
+
+                        <span class="status-dot"></span>
+
+                        Protected file access recorded
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="bottom-links">
+
+            <a href="/dashboard" class="link-btn">
+                ← Back to Dashboard
+            </a>
+
+            <a href="/file-logs" class="link-btn">
+                📋 File Access Logs
+            </a>
+
+        </div>
+
+    </div>
 
 </body>
+
 </html>

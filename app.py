@@ -92,14 +92,10 @@ def login():
 
         now = utc_now()
 
-        five_minutes_ago = (
-            now - timedelta(minutes=5)
-        )
+        five_minutes_ago = now - timedelta(minutes=5)
 
 
         # Correct credentials are always allowed.
-        # This also allows another legitimate user
-        # from the same IP to log in.
 
         if user and check_password_hash(user[1], password):
 
@@ -126,7 +122,7 @@ def login():
             return redirect("/dashboard")
 
 
-        # Admin is never blocked.
+        # Admin accounts are never blocked.
 
         if is_admin:
 
@@ -153,7 +149,7 @@ def login():
             )
 
 
-        # Check failed attempts from this IP.
+        # Count failed attempts from this IP during the last 5 minutes.
 
         failed_count = connection.execute(
             """
@@ -170,44 +166,10 @@ def login():
         ).fetchone()[0]
 
 
-        # If this IP already has 3 failed attempts,
-        # reject another invalid login attempt.
+        # If the IP already has 3 failed attempts,
+        # block further invalid login attempts.
 
         if failed_count >= 3:
-
-            existing_alert = connection.execute(
-                """
-                SELECT id
-                FROM alerts
-                WHERE ip_address = %s
-                AND message LIKE %s
-                AND timestamp >= %s
-                """,
-                (
-                    ip_address,
-                    "%temporarily blocked%",
-                    five_minutes_ago
-                )
-            ).fetchone()
-
-
-            if existing_alert is None:
-
-                connection.execute(
-                    """
-                    INSERT INTO alerts
-                    (ip_address, message, timestamp)
-                    VALUES (%s, %s, %s)
-                    """,
-                    (
-                        ip_address,
-                        "Three failed login attempts detected. Further invalid login attempts from this IP are temporarily blocked for 5 minutes.",
-                        now
-                    )
-                )
-
-                connection.commit()
-
 
             connection.close()
 
@@ -237,9 +199,9 @@ def login():
         failed_count += 1
 
 
-        # Create alert when the third failed attempt occurs.
+        # Block immediately when the third failure occurs.
 
-        if failed_count == 3:
+        if failed_count >= 3:
 
             connection.execute(
                 """
@@ -254,10 +216,17 @@ def login():
                 )
             )
 
+            connection.commit()
+            connection.close()
+
+            return render_template(
+                "login.html",
+                error="This IP address is temporarily blocked for invalid login attempts. Try again after 5 minutes."
+            )
+
 
         connection.commit()
         connection.close()
-
 
         return render_template(
             "login.html",

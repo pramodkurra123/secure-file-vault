@@ -57,6 +57,15 @@
     <a href="/users">
         <button>User Management</button>
     </a>
+    {% if session["role"] == "admin" %}
+
+<br><br>
+
+<a href="/admin-files">
+    <button>🗂️ Admin File Management</button>
+</a>
+
+{% endif %}
 
 </body>
 </html>

@@ -102,7 +102,7 @@
             letter-spacing: 3px;
         }
 
-        button {
+        .verify-btn {
             width: 100%;
             margin-top: 20px;
             padding: 13px;
@@ -115,8 +115,47 @@
             cursor: pointer;
         }
 
-        button:hover {
+        .verify-btn:hover {
             background: #1d4ed8;
+        }
+
+        .resend-btn {
+            width: 100%;
+            margin-top: 12px;
+            padding: 12px;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            background: #1f2937;
+            color: #d1d5db;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .resend-btn:hover:not(:disabled) {
+            background: #374151;
+        }
+
+        .resend-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .cooldown {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .success {
+            background: #052e16;
+            border: 1px solid #166534;
+            color: #86efac;
+            padding: 11px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-size: 13px;
+            text-align: center;
         }
 
         .error {
@@ -165,16 +204,22 @@
             Enter the 6-digit verification code sent to your registered email address.
         </p>
 
+        {% if error %}
+            {% if "sent to your email" in error %}
+                <div class="success">
+                    {{ error }}
+                </div>
+            {% else %}
+                <div class="error">
+                    {{ error }}
+                </div>
+            {% endif %}
+        {% endif %}
+
         <div class="security-box">
             Your OTP is valid for <strong>5 minutes</strong>.<br>
-            Maximum <strong>3 attempts</strong> are allowed.
+            Maximum <strong>3 verification attempts</strong> are allowed.
         </div>
-
-        {% if error %}
-            <div class="error">
-                {{ error }}
-            </div>
-        {% endif %}
 
         <form method="POST">
 
@@ -193,11 +238,25 @@
                 required
             >
 
-            <button type="submit">
+            <button type="submit" class="verify-btn">
                 Verify OTP
             </button>
 
         </form>
+
+        <form method="POST" action="/resend-otp" id="resendForm">
+
+            <button
+                type="submit"
+                class="resend-btn"
+                id="resendBtn"
+            >
+                Resend OTP
+            </button>
+
+        </form>
+
+        <div class="cooldown" id="cooldown"></div>
 
         <p class="info">
             For your security, never share your OTP with anyone.
@@ -208,6 +267,86 @@
         </a>
 
     </div>
+
+
+    <script>
+
+        const resendBtn = document.getElementById("resendBtn");
+        const cooldown = document.getElementById("cooldown");
+        const resendForm = document.getElementById("resendForm");
+
+        let timer = null;
+
+
+        function startCooldown(seconds) {
+
+            clearInterval(timer);
+
+            let remaining = seconds;
+
+            resendBtn.disabled = true;
+
+            cooldown.textContent =
+                "You can request another OTP in " +
+                remaining +
+                " seconds.";
+
+            timer = setInterval(function() {
+
+                remaining--;
+
+                if (remaining <= 0) {
+
+                    clearInterval(timer);
+
+                    resendBtn.disabled = false;
+
+                    cooldown.textContent =
+                        "You can request a new OTP now.";
+
+                    return;
+                }
+
+                cooldown.textContent =
+                    "You can request another OTP in " +
+                    remaining +
+                    " seconds.";
+
+            }, 1000);
+        }
+
+
+        resendForm.addEventListener(
+            "submit",
+            function() {
+
+                resendBtn.disabled = true;
+
+                resendBtn.textContent =
+                    "Sending OTP...";
+
+            }
+        );
+
+
+        const pageText =
+            document.body.innerText;
+
+        if (
+            pageText.includes(
+                "A new OTP has been sent"
+            )
+        ) {
+
+            startCooldown(60);
+
+        } else {
+
+            startCooldown(60);
+
+        }
+
+    </script>
 
 </body>
 </html>

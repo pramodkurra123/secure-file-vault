@@ -27,7 +27,8 @@ def create_database():
             id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            role TEXT NOT NULL
+            role TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL
         )
     """)
 
@@ -71,12 +72,27 @@ def create_database():
         )
     """)
 
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS otp_codes (
+            id SERIAL PRIMARY KEY,
+            username TEXT NOT NULL,
+            otp_hash TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            used BOOLEAN NOT NULL DEFAULT FALSE
+        )
+    """)
+
+    connection.commit()
+
     admin_username = os.environ.get("ADMIN_USERNAME")
     admin_password = os.environ.get("ADMIN_PASSWORD")
+    admin_email = os.environ.get("ADMIN_EMAIL")
 
-    if not admin_username or not admin_password:
+    if not admin_username or not admin_password or not admin_email:
         raise RuntimeError(
-            "ADMIN_USERNAME and ADMIN_PASSWORD environment variables are required."
+            "ADMIN_USERNAME, ADMIN_PASSWORD and ADMIN_EMAIL environment variables are required."
         )
 
     existing_user = connection.execute(
@@ -95,15 +111,41 @@ def create_database():
         connection.execute(
             """
             INSERT INTO users
-            (username, password, role)
-            VALUES (%s, %s, %s)
+            (username, password, role, email)
+            VALUES (%s, %s, %s, %s)
             """,
             (
                 admin_username,
                 password_hash,
-                "admin"
+                "admin",
+                admin_email
             )
         )
 
-    connection.commit()
+        connection.commit()
+
+    else:
+
+        connection.execute(
+            """
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS email TEXT
+            """
+        )
+
+        connection.execute(
+            """
+            UPDATE users
+            SET email = %s
+            WHERE username = %s
+            AND (email IS NULL OR email = '')
+            """,
+            (
+                admin_email,
+                admin_username
+            )
+        )
+
+        connection.commit()
+
     connection.close()

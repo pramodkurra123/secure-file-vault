@@ -1,71 +1,580 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Dashboard</title>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dashboard - Secure File Vault</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #f1f5f9;
+            color: #172033;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            height: 70px;
+            background: #0f172a;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 35px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 9px;
+            background: #2563eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-area {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .user-role {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 3px;
+        }
+
+        .logout {
+            text-decoration: none;
+            color: white;
+            background: #dc2626;
+            padding: 9px 15px;
+            border-radius: 7px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .logout:hover {
+            background: #b91c1c;
+        }
+
+        .main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 25px;
+        }
+
+        .welcome {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 28px;
+            margin-bottom: 30px;
+        }
+
+        .welcome h1 {
+            font-size: 27px;
+            margin-bottom: 8px;
+        }
+
+        .welcome h1 span {
+            color: #2563eb;
+        }
+
+        .welcome p {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 18px;
+            margin-bottom: 35px;
+        }
+
+        .card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 13px;
+            padding: 22px;
+            text-decoration: none;
+            color: #172033;
+            transition: 0.2s;
+            min-height: 145px;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: #93c5fd;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+        }
+
+        .card-icon {
+            width: 45px;
+            height: 45px;
+            border-radius: 10px;
+            background: #eff6ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+
+        .card h3 {
+            font-size: 15px;
+            margin-bottom: 7px;
+        }
+
+        .card p {
+            color: #64748b;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .admin-section {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 25px;
+            margin-top: 5px;
+        }
+
+        .admin-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .admin-header h2 {
+            font-size: 18px;
+        }
+
+        .admin-badge {
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 10px;
+            padding: 5px 8px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .admin-card {
+            display: block;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px;
+            text-decoration: none;
+            color: #172033;
+            transition: 0.2s;
+        }
+
+        .admin-card:hover {
+            border-color: #f59e0b;
+            background: #fffbeb;
+        }
+
+        .admin-card h3 {
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+
+        .admin-card p {
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .security-status {
+            margin-top: 30px;
+            background: #0f172a;
+            color: white;
+            border-radius: 13px;
+            padding: 20px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .status-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+
+        .status-text strong {
+            font-size: 13px;
+        }
+
+        .status-text p {
+            color: #94a3b8;
+            font-size: 11px;
+            margin-top: 3px;
+        }
+
+        footer {
+            text-align: center;
+            color: #94a3b8;
+            font-size: 11px;
+            padding: 25px;
+        }
+
+        @media (max-width: 850px) {
+
+            .cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+        }
+
+        @media (max-width: 600px) {
+
+            .topbar {
+                padding: 0 18px;
+            }
+
+            .user-info {
+                display: none;
+            }
+
+            .brand {
+                font-size: 16px;
+            }
+
+            .main {
+                padding: 25px 15px;
+            }
+
+            .cards {
+                grid-template-columns: 1fr;
+            }
+
+            .welcome h1 {
+                font-size: 23px;
+            }
+
+            .security-status {
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+        }
+
+    </style>
+
 </head>
 
 <body>
 
-    <h1>Secure File Vault</h1>
 
-    <h2>Welcome, {{ username }}</h2>
+    <header class="topbar">
 
-    <p>You have successfully logged in.</p>
+        <div class="brand">
 
-    <a href="/logout">
-        <button>Logout</button>
-    </a>
+            <div class="brand-icon">
+                🔐
+            </div>
 
-    <br><br>
+            Secure File Vault
 
-    <a href="/protected-file">
-        <button>🔐 Access Protected File</button>
-    </a>
+        </div>
 
-    <br><br>
 
-    <a href="/upload">
-        <button>📤 Upload File</button>
-    </a>
+        <div class="user-area">
 
-    <br><br>
+            <div class="user-info">
 
-    <a href="/my-files">
-        <button>📁 My Files</button>
-    </a>
+                <div class="user-name">
+                    {{ username }}
+                </div>
 
-    <br><br>
+                <div class="user-role">
+                    {{ session["role"]|upper }}
+                </div>
 
-    <a href="/logs">
-        <button>View Login Logs</button>
-    </a>
+            </div>
 
-    <br><br>
+            <a href="/logout" class="logout">
+                Logout
+            </a>
 
-    <a href="/alerts">
-        <button>View Security Alerts</button>
-    </a>
+        </div>
 
-    <br><br>
+    </header>
 
-    <a href="/file-logs">
-        <button>View File Access Logs</button>
-    </a>
 
-    <br><br>
+    <main class="main">
 
-    <a href="/users">
-        <button>User Management</button>
-    </a>
-    {% if session["role"] == "admin" %}
 
-<br><br>
+        <section class="welcome">
 
-<a href="/admin-files">
-    <button>🗂️ Admin File Management</button>
-</a>
+            <h1>
+                Welcome, <span>{{ username }}</span>
+            </h1>
 
-{% endif %}
+            <p>
+                Manage your files and monitor security activity from your
+                secure workspace.
+            </p>
+
+        </section>
+
+
+        <h2 class="section-title">
+            File Management
+        </h2>
+
+
+        <div class="cards">
+
+
+            <a href="/protected-file" class="card">
+
+                <div class="card-icon">
+                    🔐
+                </div>
+
+                <h3>
+                    Protected File
+                </h3>
+
+                <p>
+                    Access the encrypted protected file securely.
+                </p>
+
+            </a>
+
+
+            <a href="/upload" class="card">
+
+                <div class="card-icon">
+                    📤
+                </div>
+
+                <h3>
+                    Upload File
+                </h3>
+
+                <p>
+                    Upload a file and store it using encrypted storage.
+                </p>
+
+            </a>
+
+
+            <a href="/my-files" class="card">
+
+                <div class="card-icon">
+                    📁
+                </div>
+
+                <h3>
+                    My Files
+                </h3>
+
+                <p>
+                    View and download files uploaded by your account.
+                </p>
+
+            </a>
+
+        </div>
+
+
+        <h2 class="section-title">
+            Security & Monitoring
+        </h2>
+
+
+        <div class="cards">
+
+
+            <a href="/logs" class="card">
+
+                <div class="card-icon">
+                    📋
+                </div>
+
+                <h3>
+                    Login Logs
+                </h3>
+
+                <p>
+                    Review successful and failed login attempts.
+                </p>
+
+            </a>
+
+
+            <a href="/alerts" class="card">
+
+                <div class="card-icon">
+                    🚨
+                </div>
+
+                <h3>
+                    Security Alerts
+                </h3>
+
+                <p>
+                    View alerts generated by suspicious login activity.
+                </p>
+
+            </a>
+
+
+            <a href="/file-logs" class="card">
+
+                <div class="card-icon">
+                    🛡️
+                </div>
+
+                <h3>
+                    File Access Logs
+                </h3>
+
+                <p>
+                    Monitor file access activity and download events.
+                </p>
+
+            </a>
+
+        </div>
+
+
+        <div class="cards">
+
+
+            <a href="/users" class="card">
+
+                <div class="card-icon">
+                    👥
+                </div>
+
+                <h3>
+                    User Management
+                </h3>
+
+                <p>
+                    Manage registered users and account access.
+                </p>
+
+            </a>
+
+
+        </div>
+
+
+        {% if session["role"] == "admin" %}
+
+        <section class="admin-section">
+
+            <div class="admin-header">
+
+                <h2>
+                    Administration
+                </h2>
+
+                <span class="admin-badge">
+                    ADMIN ONLY
+                </span>
+
+            </div>
+
+
+            <a href="/admin-files" class="admin-card">
+
+                <h3>
+                    🗂️ Admin File Management
+                </h3>
+
+                <p>
+                    View and download uploaded files from all user accounts.
+                </p>
+
+            </a>
+
+        </section>
+
+        {% endif %}
+
+
+        <div class="security-status">
+
+            <div class="status-left">
+
+                <div class="status-dot"></div>
+
+                <div class="status-text">
+
+                    <strong>
+                        Security Monitoring Active
+                    </strong>
+
+                    <p>
+                        Authentication, file access and security events are monitored.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+    </main>
+
+
+    <footer>
+
+        Secure File Vault &nbsp;•&nbsp; Secure File Management System
+
+    </footer>
+
 
 </body>
+
 </html>

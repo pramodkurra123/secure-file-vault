@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Files - Secure File Vault</title>
+</head>
+
+<body>
+
+    <h1>Secure File Vault</h1>
+
+    <h2>My Files</h2>
+
+    {% if files %}
+
+        <table border="1" cellpadding="8">
+
+            <tr>
+                <th>File Name</th>
+                <th>Size</th>
+                <th>Uploaded At</th>
+                <th>Action</th>
+            </tr>
+
+            {% for file in files %}
+
+            <tr>
+
+                <td>{{ file[1] }}</td>
+
+                <td>{{ file[2] }} bytes</td>
+
+                <td>{{ file[3] }}</td>
+
+                <td>
+                    <a href="/download/{{ file[0] }}">
+                        Download
+                    </a>
+                </td>
+
+            </tr>
+
+            {% endfor %}
+
+        </table>
+
+    {% else %}
+
+        <p>No files uploaded yet.</p>
+
+    {% endif %}
+
+    <br>
+
+    <a href="/upload">Upload Another File</a>
+
+    <br><br>
+
+    <a href="/dashboard">Back to Dashboard</a>
+
+</body>
+</html>

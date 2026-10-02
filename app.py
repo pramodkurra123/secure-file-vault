@@ -513,6 +513,28 @@ def download_file(file_id):
         connection.close()
 
         return f"Unable to download file: {e}", 500
+@app.route("/admin-files")
+def admin_files():
+
+    if "username" not in session or session["role"] != "admin":
+        return "Access denied", 403
+
+    connection = get_connection()
+
+    files = connection.execute(
+        """
+        SELECT id, username, filename, file_size, uploaded_at
+        FROM stored_files
+        ORDER BY id DESC
+        """
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "admin_files.html",
+        files=files
+    )
 @app.route("/logout")
 def logout():
 

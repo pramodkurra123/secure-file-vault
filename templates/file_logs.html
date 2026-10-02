@@ -1,37 +1,390 @@
-```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>File Access Logs</title>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>File Access Logs - Secure File Vault</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #0b1120;
+            color: #e5e7eb;
+            min-height: 100vh;
+        }
+
+        .topbar {
+            background: #111827;
+            border-bottom: 1px solid #243044;
+            padding: 18px 35px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-size: 21px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .brand span {
+            color: #38bdf8;
+        }
+
+        .admin-badge {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 4px 9px;
+            border-radius: 5px;
+            background: #7c3aed;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: bold;
+            vertical-align: middle;
+        }
+
+        .logout {
+            text-decoration: none;
+            color: #ffffff;
+            background: #dc2626;
+            padding: 9px 16px;
+            border-radius: 7px;
+            font-size: 14px;
+        }
+
+        .logout:hover {
+            background: #b91c1c;
+        }
+
+        .container {
+            max-width: 1150px;
+            margin: 45px auto;
+            padding: 0 25px;
+        }
+
+        .header {
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 30px;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #94a3b8;
+            font-size: 15px;
+        }
+
+        .card {
+            background: #111827;
+            border: 1px solid #243044;
+            border-radius: 12px;
+            padding: 25px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 850px;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px;
+            background: #172033;
+            color: #93c5fd;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 15px 14px;
+            border-top: 1px solid #243044;
+            color: #d1d5db;
+            font-size: 14px;
+        }
+
+        tr:hover td {
+            background: #151e30;
+        }
+
+        .username {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .ip {
+            color: #38bdf8;
+            font-family: monospace;
+            font-size: 13px;
+        }
+
+        .filename {
+            color: #c4b5fd;
+            font-weight: 600;
+        }
+
+        .time {
+            color: #cbd5e1;
+            white-space: nowrap;
+        }
+
+        .access-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            background: #052e16;
+            border: 1px solid #166534;
+            color: #86efac;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 55px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-icon {
+            font-size: 45px;
+            margin-bottom: 15px;
+        }
+
+        .empty h3 {
+            color: #ffffff;
+            margin-bottom: 8px;
+            font-size: 18px;
+        }
+
+        .security-note {
+            margin-top: 22px;
+            padding: 16px 18px;
+            border-radius: 8px;
+            background: #0f172a;
+            border: 1px solid #1e3a5f;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .security-note strong {
+            color: #38bdf8;
+        }
+
+        .bottom-links {
+            margin-top: 25px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .link-btn {
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 7px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #cbd5e1;
+            font-size: 14px;
+        }
+
+        .link-btn:hover {
+            background: #273449;
+            color: #ffffff;
+        }
+
+        @media (max-width: 700px) {
+
+            .topbar {
+                padding: 16px 20px;
+            }
+
+            .container {
+                margin: 30px auto;
+                padding: 0 15px;
+            }
+
+            .header h1 {
+                font-size: 25px;
+            }
+
+            .card {
+                padding: 15px;
+            }
+
+        }
+
+    </style>
+
 </head>
 
 <body>
 
-    <h1>File Access Logs</h1>
+    <div class="topbar">
 
-    <table border="1" cellpadding="8">
-        <tr>
-            <th>Username</th>
-            <th>IP Address</th>
-            <th>File</th>
-            <th>Timestamp</th>
-        </tr>
+        <div class="brand">
+            🔐 Secure <span>File Vault</span>
+            <span class="admin-badge">ADMIN</span>
+        </div>
 
-        {% for log in logs %}
-        <tr>
-            <td>{{ log[0] }}</td>
-            <td>{{ log[1] }}</td>
-            <td>{{ log[2] }}</td>
-            <td>{{ log[3] }}</td>
-        </tr>
-        {% endfor %}
+        <a href="/logout" class="logout">
+            Logout
+        </a>
 
-    </table>
+    </div>
 
-    <br>
 
-    <a href="/dashboard">Back to Dashboard</a>
+    <div class="container">
+
+        <div class="header">
+
+            <h1>File Access Logs</h1>
+
+            <p>
+                Monitor file access activity across the Secure File Vault.
+            </p>
+
+        </div>
+
+
+        <div class="card">
+
+            {% if logs %}
+
+                <table>
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+                                Username
+                            </th>
+
+                            <th>
+                                IP Address
+                            </th>
+
+                            <th>
+                                File
+                            </th>
+
+                            <th>
+                                Access Time
+                            </th>
+
+                            <th>
+                                Status
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for log in logs %}
+
+                        <tr>
+
+                            <td class="username">
+                                {{ log[0] }}
+                            </td>
+
+
+                            <td class="ip">
+                                {{ log[1] }}
+                            </td>
+
+
+                            <td class="filename">
+                                🔐 {{ log[2] }}
+                            </td>
+
+
+                            <td class="time">
+                                {{ log[3]|ist }}
+                            </td>
+
+
+                            <td>
+
+                                <span class="access-badge">
+                                    ACCESSED
+                                </span>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            {% else %}
+
+                <div class="empty">
+
+                    <div class="empty-icon">
+                        📁
+                    </div>
+
+                    <h3>No File Access Activity</h3>
+
+                    <p>
+                        No protected file access has been recorded yet.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <div class="security-note">
+
+            🔎 <strong>Access Monitoring:</strong>
+            Every protected file access records the username,
+            client IP address, filename, and timestamp. These records
+            help administrators monitor file activity and investigate
+            unauthorized access attempts.
+
+        </div>
+
+
+        <div class="bottom-links">
+
+            <a href="/admin-files" class="link-btn">
+                📂 Admin File Management
+            </a>
+
+            <a href="/dashboard" class="link-btn">
+                ← Back to Dashboard
+            </a>
+
+        </div>
+
+    </div>
 
 </body>
+
 </html>
-```

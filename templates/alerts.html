@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Security Alerts</title>
+</head>
+
+<body>
+
+    <h1>Security Alerts</h1>
+
+    {% if alerts %}
+
+    <table border="1">
+
+        <tr>
+            <th>IP Address</th>
+            <th>Alert</th>
+            <th>Time</th>
+        </tr>
+
+        {% for alert in alerts %}
+
+        <tr>
+            <td>{{ alert[0] }}</td>
+            <td>{{ alert[1] }}</td>
+            <td>{{ alert[2] }}</td>
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+    {% else %}
+
+    <p>No security alerts.</p>
+
+    {% endif %}
+
+    <br>
+
+    <a href="/dashboard">Back to Dashboard</a>
+
+</body>
+
+</html>

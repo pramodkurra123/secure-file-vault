@@ -1,22 +1,54 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import psycopg
 
 from flask import Flask, render_template, request, redirect, session, flash
-
 from database import create_database, get_connection
 from werkzeug.security import check_password_hash, generate_password_hash
 from security import decrypt_file
 from cryptography.fernet import Fernet
 from werkzeug.utils import secure_filename
+from zoneinfo import ZoneInfo
+
+
+def get_client_ip():
+
+    forwarded_for = request.headers.get("X-Forwarded-For")
+
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+
+    return request.remote_addr
+
+
+def utc_now():
+
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def to_ist(value):
+
+    if value is None:
+        return ""
+
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(
+        ZoneInfo("Asia/Kolkata")
+    ).strftime("%d-%m-%Y %I:%M:%S %p")
 
 
 app = Flask(__name__)
 
+app.jinja_env.filters["ist"] = to_ist
+
 app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
 if not app.secret_key:
-    raise RuntimeError("FLASK_SECRET_KEY environment variable is not set.")
+    raise RuntimeError(
+        "FLASK_SECRET_KEY environment variable is not set."
+    )
 
 
 app.config.update(
@@ -42,7 +74,8 @@ def login():
 
         username = request.form["username"]
         password = request.form["password"]
-        ip_address = request.remote_addr
+
+        ip_address = get_client_ip()
 
         connection = get_connection()
 
@@ -58,7 +91,7 @@ def login():
         is_admin = user is not None and user[2] == "admin"
 
         five_minutes_ago = (
-            datetime.now() - timedelta(minutes=5)
+            utc_now() - timedelta(minutes=5)
         )
 
         if not is_admin:
@@ -103,7 +136,7 @@ def login():
                         (
                             ip_address,
                             "Three failed login attempts detected. IP address temporarily blocked for 5 minutes.",
-                            datetime.now()
+                            utc_now()
                         )
                     )
 
@@ -116,6 +149,7 @@ def login():
                     error="This IP address is temporarily blocked. Try again after 5 minutes."
                 )
 
+
         if user and check_password_hash(user[1], password):
 
             connection.execute(
@@ -127,7 +161,7 @@ def login():
                 (
                     username,
                     ip_address,
-                    datetime.now(),
+                    utc_now(),
                     "SUCCESS"
                 )
             )
@@ -140,6 +174,7 @@ def login():
 
             return redirect("/dashboard")
 
+
         connection.execute(
             """
             INSERT INTO login_attempts
@@ -149,10 +184,11 @@ def login():
             (
                 username,
                 ip_address,
-                datetime.now(),
+                utc_now(),
                 "FAILED"
             )
         )
+
 
         if not is_admin:
 
@@ -170,6 +206,7 @@ def login():
                 )
             ).fetchone()[0]
 
+
             if failed_count == 3:
 
                 connection.execute(
@@ -181,9 +218,10 @@ def login():
                     (
                         ip_address,
                         "Three failed login attempts detected. IP address temporarily blocked for 5 minutes.",
-                        datetime.now()
+                        utc_now()
                     )
                 )
+
 
         connection.commit()
         connection.close()
@@ -192,6 +230,7 @@ def login():
             "login.html",
             error="Invalid username or password"
         )
+
 
     return render_template("login.html")
 
@@ -240,9 +279,9 @@ def protected_file():
             """,
             (
                 session["username"],
-                request.remote_addr,
+                get_client_ip(),
                 "secret.enc",
-                datetime.now()
+                utc_now()
             )
         )
 
@@ -299,7 +338,7 @@ def users():
 
     if request.method == "POST":
 
-        username = request.form["username"]
+        username = request.form["username"].strip()
         password = request.form["password"]
 
         if username == "" or password == "":
@@ -334,9 +373,10 @@ def users():
 
                 error = "Username already exists."
 
+
     user_list = connection.execute(
         """
-        SELECT username, role
+        SELECT id, username, role
         FROM users
         ORDER BY id
         """
@@ -351,48 +391,130 @@ def users():
         error=error
     )
 
+
+@app.route("/delete-user/<int:user_id>", methods=["POST"])
+def delete_user(user_id):
+
+    if "username" not in session or session["role"] != "admin":
+        return "Access denied", 403
+
+    connection = get_connection()
+
+    user = connection.execute(
+        """
+        SELECT username, role
+        FROM users
+        WHERE id = %s
+        """,
+        (user_id,)
+    ).fetchone()
+
+    if user is None:
+
+        connection.close()
+
+        return "User not found.", 404
+
+
+    username = user[0]
+    role = user[1]
+
+
+    if username == session["username"]:
+
+        connection.close()
+
+        return "You cannot delete the currently logged-in admin account.", 400
+
+
+    if role == "admin":
+
+        connection.close()
+
+        return "Admin accounts cannot be deleted from this page.", 400
+
+
+    connection.execute(
+        """
+        DELETE FROM stored_files
+        WHERE username = %s
+        """,
+        (username,)
+    )
+
+
+    connection.execute(
+        """
+        DELETE FROM users
+        WHERE id = %s
+        """,
+        (user_id,)
+    )
+
+
+    connection.commit()
+    connection.close()
+
+    return redirect("/users")
+
+
 @app.route("/upload", methods=["GET", "POST"])
 def upload():
 
     if "username" not in session:
         return redirect("/login")
 
+
     if request.method == "POST":
 
         file = request.files.get("file")
 
+
         if not file or file.filename == "":
+
             return render_template(
                 "upload.html",
                 error="Please select a file."
             )
 
+
         filename = secure_filename(file.filename)
 
+
         if filename == "":
+
             return render_template(
                 "upload.html",
                 error="Invalid filename."
             )
 
+
         data = file.read()
 
+
         if len(data) > 5 * 1024 * 1024:
+
             return render_template(
                 "upload.html",
                 error="File size must be 5 MB or less."
             )
 
+
         key = os.environ.get("FERNET_KEY")
 
+
         if not key:
+
             return "FERNET_KEY environment variable is not set.", 500
+
 
         cipher = Fernet(key.encode())
 
         encrypted_data = cipher.encrypt(data)
 
+
         connection = get_connection()
+
 
         connection.execute(
             """
@@ -405,23 +527,30 @@ def upload():
                 filename,
                 encrypted_data,
                 len(data),
-                datetime.now()
+                utc_now()
             )
         )
+
 
         connection.commit()
         connection.close()
 
+
         return redirect("/my-files")
 
+
     return render_template("upload.html")
+
+
 @app.route("/my-files")
 def my_files():
 
     if "username" not in session:
         return redirect("/login")
 
+
     connection = get_connection()
+
 
     files = connection.execute(
         """
@@ -433,19 +562,76 @@ def my_files():
         (session["username"],)
     ).fetchall()
 
+
     connection.close()
+
 
     return render_template(
         "my_files.html",
         files=files
     )
+
+
+@app.route("/delete-file/<int:file_id>", methods=["POST"])
+def delete_file(file_id):
+
+    if "username" not in session:
+        return redirect("/login")
+
+
+    connection = get_connection()
+
+
+    file = connection.execute(
+        """
+        SELECT filename
+        FROM stored_files
+        WHERE id = %s
+        AND username = %s
+        """,
+        (
+            file_id,
+            session["username"]
+        )
+    ).fetchone()
+
+
+    if file is None:
+
+        connection.close()
+
+        return "File not found or access denied.", 404
+
+
+    connection.execute(
+        """
+        DELETE FROM stored_files
+        WHERE id = %s
+        AND username = %s
+        """,
+        (
+            file_id,
+            session["username"]
+        )
+    )
+
+
+    connection.commit()
+    connection.close()
+
+
+    return redirect("/my-files")
+
+
 @app.route("/download/<int:file_id>")
 def download_file(file_id):
 
     if "username" not in session:
         return redirect("/login")
 
+
     connection = get_connection()
+
 
     file = connection.execute(
         """
@@ -460,23 +646,34 @@ def download_file(file_id):
         )
     ).fetchone()
 
+
     if file is None:
+
         connection.close()
+
         return "File not found or access denied.", 404
+
 
     filename = file[0]
     encrypted_data = file[1]
+
 
     try:
 
         key = os.environ.get("FERNET_KEY")
 
+
         if not key:
-            raise RuntimeError("FERNET_KEY environment variable is not set.")
+
+            raise RuntimeError(
+                "FERNET_KEY environment variable is not set."
+            )
+
 
         cipher = Fernet(key.encode())
 
         decrypted_data = cipher.decrypt(encrypted_data)
+
 
         connection.execute(
             """
@@ -486,40 +683,50 @@ def download_file(file_id):
             """,
             (
                 session["username"],
-                request.remote_addr,
+                get_client_ip(),
                 filename,
-                datetime.now()
+                utc_now()
             )
         )
+
 
         connection.commit()
         connection.close()
 
+
         from flask import Response
+
 
         response = Response(
             decrypted_data,
             mimetype="application/octet-stream"
         )
 
+
         response.headers["Content-Disposition"] = (
             f'attachment; filename="{filename}"'
         )
 
+
         return response
+
 
     except Exception as e:
 
         connection.close()
 
         return f"Unable to download file: {e}", 500
+
+
 @app.route("/admin-files")
 def admin_files():
 
     if "username" not in session or session["role"] != "admin":
         return "Access denied", 403
 
+
     connection = get_connection()
+
 
     files = connection.execute(
         """
@@ -529,19 +736,25 @@ def admin_files():
         """
     ).fetchall()
 
+
     connection.close()
+
 
     return render_template(
         "admin_files.html",
         files=files
     )
+
+
 @app.route("/admin-download/<int:file_id>")
 def admin_download(file_id):
 
     if "username" not in session or session["role"] != "admin":
         return "Access denied", 403
 
+
     connection = get_connection()
+
 
     file = connection.execute(
         """
@@ -552,23 +765,34 @@ def admin_download(file_id):
         (file_id,)
     ).fetchone()
 
+
     if file is None:
+
         connection.close()
+
         return "File not found.", 404
+
 
     filename = file[0]
     encrypted_data = file[1]
+
 
     try:
 
         key = os.environ.get("FERNET_KEY")
 
+
         if not key:
-            raise RuntimeError("FERNET_KEY environment variable is not set.")
+
+            raise RuntimeError(
+                "FERNET_KEY environment variable is not set."
+            )
+
 
         cipher = Fernet(key.encode())
 
         decrypted_data = cipher.decrypt(encrypted_data)
+
 
         connection.execute(
             """
@@ -578,33 +802,84 @@ def admin_download(file_id):
             """,
             (
                 session["username"],
-                request.remote_addr,
+                get_client_ip(),
                 filename,
-                datetime.now()
+                utc_now()
             )
         )
+
 
         connection.commit()
         connection.close()
 
+
         from flask import Response
+
 
         response = Response(
             decrypted_data,
             mimetype="application/octet-stream"
         )
 
+
         response.headers["Content-Disposition"] = (
             f'attachment; filename="{filename}"'
         )
 
+
         return response
+
 
     except Exception as e:
 
         connection.close()
 
         return f"Unable to download file: {e}", 500
+
+
+@app.route("/admin-delete-file/<int:file_id>", methods=["POST"])
+def admin_delete_file(file_id):
+
+    if "username" not in session or session["role"] != "admin":
+        return "Access denied", 403
+
+
+    connection = get_connection()
+
+
+    file = connection.execute(
+        """
+        SELECT filename
+        FROM stored_files
+        WHERE id = %s
+        """,
+        (file_id,)
+    ).fetchone()
+
+
+    if file is None:
+
+        connection.close()
+
+        return "File not found.", 404
+
+
+    connection.execute(
+        """
+        DELETE FROM stored_files
+        WHERE id = %s
+        """,
+        (file_id,)
+    )
+
+
+    connection.commit()
+    connection.close()
+
+
+    return redirect("/admin-files")
+
+
 @app.route("/logout")
 def logout():
 
@@ -619,7 +894,9 @@ def logs():
     if "username" not in session or session["role"] != "admin":
         return "Access denied", 403
 
+
     connection = get_connection()
+
 
     attempts = connection.execute(
         """
@@ -629,7 +906,9 @@ def logs():
         """
     ).fetchall()
 
+
     connection.close()
+
 
     return render_template(
         "logs.html",
@@ -643,7 +922,9 @@ def alerts():
     if "username" not in session or session["role"] != "admin":
         return "Access denied", 403
 
+
     connection = get_connection()
+
 
     alerts = connection.execute(
         """
@@ -653,7 +934,9 @@ def alerts():
         """
     ).fetchall()
 
+
     connection.close()
+
 
     return render_template(
         "alerts.html",

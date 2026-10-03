@@ -83,6 +83,17 @@ def create_database():
             used BOOLEAN NOT NULL DEFAULT FALSE
         )
     """)
+        connection.execute("""
+        CREATE TABLE IF NOT EXISTS pro_vault_files (
+            id SERIAL PRIMARY KEY,
+            username TEXT NOT NULL,
+            stored_name TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            file_data BYTEA NOT NULL,
+            file_size BIGINT NOT NULL,
+            uploaded_at TIMESTAMP NOT NULL
+        )
+    """)
 
     connection.commit()
 

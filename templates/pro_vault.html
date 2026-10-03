@@ -682,18 +682,14 @@
 
 let vaultKey = null;
 
-
-/* =========================================================
-   STATUS
-   ========================================================= */
-
-function showStatus(message, error = false) {
+function showStatus(message, error) {
 
     const box = document.getElementById("statusBox");
 
     box.textContent = message;
 
-    box.classList.remove("success", "error");
+    box.classList.remove("success");
+    box.classList.remove("error");
 
     if (error) {
         box.classList.add("error");
@@ -703,18 +699,10 @@ function showStatus(message, error = false) {
 }
 
 
-/* =========================================================
-   HEX TO BYTES
-   ========================================================= */
-
 function hexToBytes(hex) {
 
-    if (typeof hex !== "string") {
+    if (typeof hex !== "string" || hex.length !== 64) {
         throw new Error("Invalid vault key.");
-    }
-
-    if (hex.length !== 64) {
-        throw new Error("Invalid vault key length.");
     }
 
     const bytes = new Uint8Array(32);
@@ -736,10 +724,6 @@ function hexToBytes(hex) {
     return bytes;
 }
 
-
-/* =========================================================
-   RESTORE VAULT KEY
-   ========================================================= */
 
 async function restoreVaultKey() {
 
@@ -764,16 +748,14 @@ async function restoreVaultKey() {
             return false;
         }
 
-        const key = hexToBytes(data.vault_key);
-
-        vaultKey = key;
+        vaultKey = hexToBytes(data.vault_key);
 
         return true;
 
     } catch (error) {
 
         console.error(
-            "VAULT KEY RESTORE ERROR:",
+            "VAULT KEY ERROR:",
             error
         );
 
@@ -782,18 +764,10 @@ async function restoreVaultKey() {
 }
 
 
-/* =========================================================
-   GET CRYPTO KEY
-   ========================================================= */
-
 async function getCryptoKey() {
 
     if (!vaultKey) {
         throw new Error("Pro Vault is locked.");
-    }
-
-    if (vaultKey.length !== 32) {
-        throw new Error("Invalid vault key.");
     }
 
     return await crypto.subtle.importKey(
@@ -811,20 +785,13 @@ async function getCryptoKey() {
 }
 
 
-/* =========================================================
-   UNLOCK
-   ========================================================= */
-
 async function unlockVault() {
 
-    const passwordInput =
-        document.getElementById("vaultPassword");
-
-    const unlockButton =
-        document.getElementById("unlockButton");
-
     const password =
-        passwordInput.value;
+        document.getElementById("vaultPassword").value;
+
+    const button =
+        document.getElementById("unlockButton");
 
     if (!password) {
 
@@ -836,9 +803,11 @@ async function unlockVault() {
         return;
     }
 
-    unlockButton.disabled = true;
+    button.disabled = true;
 
-    showStatus("Unlocking Pro Vault...");
+    showStatus(
+        "Unlocking Pro Vault..."
+    );
 
     try {
 
@@ -859,13 +828,8 @@ async function unlockVault() {
             }
         );
 
-        let data = {};
-
-        try {
-            data = await response.json();
-        } catch (e) {
-            throw new Error("Invalid server response.");
-        }
+        const data =
+            await response.json();
 
         if (!response.ok) {
 
@@ -889,7 +853,9 @@ async function unlockVault() {
             "uploadButton"
         ).disabled = false;
 
-        passwordInput.value = "";
+        document.getElementById(
+            "vaultPassword"
+        ).value = "";
 
         showStatus(
             data.message ||
@@ -908,14 +874,10 @@ async function unlockVault() {
 
     } finally {
 
-        unlockButton.disabled = false;
+        button.disabled = false;
     }
 }
 
-
-/* =========================================================
-   ENCRYPT FILE
-   ========================================================= */
 
 async function encryptFile(file) {
 
@@ -964,37 +926,28 @@ async function encryptFile(file) {
 }
 
 
-/* =========================================================
-   DECRYPT FILE
-   ========================================================= */
-
-async function decryptFile(encryptedBuffer) {
+async function decryptFile(buffer) {
 
     if (!vaultKey) {
-
         throw new Error(
             "Pro Vault is locked."
         );
     }
 
-    if (
-        !encryptedBuffer ||
-        encryptedBuffer.byteLength < 28
-    ) {
-
+    if (buffer.byteLength < 28) {
         throw new Error(
-            "Encrypted file is invalid or corrupted."
+            "Encrypted file is invalid."
         );
     }
 
-    const encryptedBytes =
-        new Uint8Array(encryptedBuffer);
+    const bytes =
+        new Uint8Array(buffer);
 
     const iv =
-        encryptedBytes.slice(0, 12);
+        bytes.slice(0, 12);
 
     const ciphertext =
-        encryptedBytes.slice(12);
+        bytes.slice(12);
 
     const key =
         await crypto.subtle.importKey(
@@ -1023,21 +976,16 @@ async function decryptFile(encryptedBuffer) {
     } catch (error) {
 
         console.error(
-            "AES-GCM DECRYPT ERROR:",
+            "DECRYPT ERROR:",
             error
         );
 
         throw new Error(
-            "Unable to decrypt the file. " +
-            "This file may have been encrypted using an older format."
+            "Unable to decrypt this file."
         );
     }
 }
 
-
-/* =========================================================
-   UPLOAD
-   ========================================================= */
 
 async function uploadFile() {
 
@@ -1060,10 +1008,7 @@ async function uploadFile() {
     const input =
         document.getElementById("fileInput");
 
-    if (
-        !input.files ||
-        input.files.length === 0
-    ) {
+    if (!input.files || input.files.length === 0) {
 
         showStatus(
             "Please select a file.",
@@ -1076,10 +1021,7 @@ async function uploadFile() {
     const file =
         input.files[0];
 
-    if (
-        file.size >
-        5 * 1024 * 1024
-    ) {
+    if (file.size > 5 * 1024 * 1024) {
 
         showStatus(
             "File size must be 5 MB or less.",
@@ -1089,7 +1031,7 @@ async function uploadFile() {
         return;
     }
 
-    if (file.size <= 0) {
+    if (file.size === 0) {
 
         showStatus(
             "The selected file is empty.",
@@ -1099,12 +1041,10 @@ async function uploadFile() {
         return;
     }
 
-    const uploadButton =
-        document.getElementById(
-            "uploadButton"
-        );
+    const button =
+        document.getElementById("uploadButton");
 
-    uploadButton.disabled = true;
+    button.disabled = true;
 
     showStatus(
         "Encrypting file..."
@@ -1149,15 +1089,8 @@ async function uploadFile() {
                 }
             );
 
-        let data = {};
-
-        try {
-            data = await response.json();
-        } catch (e) {
-            throw new Error(
-                "Invalid server response."
-            );
-        }
+        const data =
+            await response.json();
 
         if (!response.ok) {
 
@@ -1169,7 +1102,7 @@ async function uploadFile() {
 
         showStatus(
             data.message ||
-            "Encrypted file uploaded successfully."
+            "File uploaded successfully."
         );
 
         input.value = "";
@@ -1189,26 +1122,15 @@ async function uploadFile() {
             true
         );
 
-        uploadButton.disabled = false;
+        button.disabled = false;
     }
 }
 
 
-/* =========================================================
-   MIME TYPE
-   ========================================================= */
-
 function getMimeType(filename) {
 
-    const name =
-        filename.toLowerCase();
-
     const extension =
-        name.includes(".")
-            ? name.substring(
-                name.lastIndexOf(".") + 1
-            )
-            : "";
+        filename.toLowerCase().split(".").pop();
 
     const types = {
 
@@ -1238,15 +1160,18 @@ function getMimeType(filename) {
 
         doc: "application/msword",
 
-        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        docx:
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 
         xls: "application/vnd.ms-excel",
 
-        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        xlsx:
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 
         ppt: "application/vnd.ms-powerpoint",
 
-        pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        pptx:
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 
         mp3: "audio/mpeg",
 
@@ -1257,18 +1182,12 @@ function getMimeType(filename) {
         avi: "video/x-msvideo"
     };
 
-    return (
-        types[extension] ||
-        "application/octet-stream"
-    );
+    return types[extension] ||
+        "application/octet-stream";
 }
 
 
-/* =========================================================
-   BROWSER DOWNLOAD
-   ========================================================= */
-
-function downloadBytes(data, filename) {
+function saveFile(data, filename) {
 
     const blob =
         new Blob(
@@ -1288,8 +1207,6 @@ function downloadBytes(data, filename) {
 
     link.download = filename;
 
-    link.style.display = "none";
-
     document.body.appendChild(link);
 
     link.click();
@@ -1305,40 +1222,40 @@ function downloadBytes(data, filename) {
 }
 
 
-/* =========================================================
-   DOWNLOAD
-   ========================================================= */
-
 async function downloadFile(
     fileId,
     filename,
     downloadUrl
 ) {
 
-    if (!vaultKey) {
-
-        const restored =
-            await restoreVaultKey();
-
-        if (!restored) {
-
-            showStatus(
-                "Unlock the Pro Vault before downloading files.",
-                true
-            );
-
-            return;
-        }
-    }
-
-    showStatus(
-        "Downloading encrypted file..."
-    );
-
     try {
 
+        if (!vaultKey) {
+
+            showStatus(
+                "Restoring vault access..."
+            );
+
+            const restored =
+                await restoreVaultKey();
+
+            if (!restored) {
+
+                showStatus(
+                    "Unlock the Pro Vault before downloading.",
+                    true
+                );
+
+                return;
+            }
+        }
+
+        showStatus(
+            "Downloading encrypted file..."
+        );
+
         console.log(
-            "Download URL:",
+            "DOWNLOAD URL:",
             downloadUrl
         );
 
@@ -1353,7 +1270,7 @@ async function downloadFile(
             );
 
         console.log(
-            "Download HTTP status:",
+            "DOWNLOAD STATUS:",
             response.status
         );
 
@@ -1372,7 +1289,6 @@ async function downloadFile(
                 }
 
             } catch (e) {
-                // Not a JSON response.
             }
 
             throw new Error(message);
@@ -1382,18 +1298,9 @@ async function downloadFile(
             await response.arrayBuffer();
 
         console.log(
-            "Encrypted data size:",
+            "ENCRYPTED SIZE:",
             encryptedData.byteLength
         );
-
-        if (
-            encryptedData.byteLength < 28
-        ) {
-
-            throw new Error(
-                "The downloaded encrypted file is invalid or empty."
-            );
-        }
 
         showStatus(
             "Decrypting file..."
@@ -1405,11 +1312,11 @@ async function downloadFile(
             );
 
         console.log(
-            "Decrypted data size:",
+            "DECRYPTED SIZE:",
             decryptedData.byteLength
         );
 
-        downloadBytes(
+        saveFile(
             decryptedData,
             filename
         );
@@ -1434,10 +1341,6 @@ async function downloadFile(
 }
 
 
-/* =========================================================
-   PAGE LOAD
-   ========================================================= */
-
 window.addEventListener(
     "DOMContentLoaded",
     async function() {
@@ -1460,41 +1363,34 @@ window.addEventListener(
             );
         }
 
-        {% if vault_unlocked %}
-
-        const restored =
-            await restoreVaultKey();
-
-        if (restored) {
-
+        const uploadButton =
             document.getElementById(
                 "uploadButton"
-            ).disabled = false;
-
-            showStatus(
-                "Pro Vault is unlocked."
             );
 
-        } else {
+        const serverUnlocked =
+            {{ vault_unlocked|tojson }};
 
-            document.getElementById(
-                "uploadButton"
-            ).disabled = true;
+        if (serverUnlocked) {
+
+            const restored =
+                await restoreVaultKey();
+
+            if (restored) {
+
+                uploadButton.disabled = false;
+
+                showStatus(
+                    "Pro Vault is unlocked."
+                );
+            }
         }
-
-        {% endif %}
     }
 );
-
-
-/* =========================================================
-   CLEAR BROWSER VAULT KEY WHEN LEAVING PAGE
-   ========================================================= */
 
 window.addEventListener(
     "pagehide",
     function() {
-
         vaultKey = null;
     }
 );

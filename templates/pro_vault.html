@@ -18,95 +18,170 @@
         }
 
         body {
-            background: #f1f5f9;
-            color: #172033;
+            background:
+                radial-gradient(
+                    circle at 15% 10%,
+                    rgba(6, 182, 212, 0.08),
+                    transparent 28%
+                ),
+                radial-gradient(
+                    circle at 85% 20%,
+                    rgba(124, 58, 237, 0.10),
+                    transparent 30%
+                ),
+                #020617;
+            color: #e2e8f0;
             min-height: 100vh;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(
+                    rgba(255,255,255,0.015) 1px,
+                    transparent 1px
+                ),
+                linear-gradient(
+                    90deg,
+                    rgba(255,255,255,0.015) 1px,
+                    transparent 1px
+                );
+            background-size: 40px 40px;
+            z-index: -1;
         }
 
         .topbar {
             height: 70px;
-            background: #0f172a;
+            background: rgba(2, 6, 23, 0.92);
+            border-bottom: 1px solid #1e293b;
             color: white;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 35px;
-            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+            box-shadow:
+                0 5px 25px rgba(0, 0, 0, 0.35);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(12px);
         }
 
         .brand {
             display: flex;
             align-items: center;
             gap: 12px;
-            font-size: 20px;
+            font-size: 19px;
             font-weight: bold;
+            letter-spacing: 0.4px;
         }
 
         .brand-icon {
             width: 40px;
             height: 40px;
-            border-radius: 9px;
-            background: #7c3aed;
+            border-radius: 10px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #06b6d4,
+                    #7c3aed
+                );
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow:
+                0 0 18px rgba(6, 182, 212, 0.25);
         }
 
         .back {
             text-decoration: none;
-            color: white;
-            background: #334155;
+            color: #cbd5e1;
+            background: #0f172a;
+            border: 1px solid #334155;
             padding: 9px 15px;
-            border-radius: 7px;
+            border-radius: 8px;
             font-size: 13px;
             font-weight: bold;
+            transition: 0.2s;
         }
 
         .back:hover {
-            background: #475569;
+            color: white;
+            border-color: #06b6d4;
+            background: #111c32;
         }
 
         .main {
-            max-width: 1100px;
+            max-width: 1120px;
             margin: 0 auto;
             padding: 40px 25px;
         }
 
         .hero {
-            background: linear-gradient(
-                135deg,
-                #1e1b4b,
-                #312e81
-            );
-
+            position: relative;
+            overflow: hidden;
+            background:
+                linear-gradient(
+                    135deg,
+                    #07111f,
+                    #111338,
+                    #1e1642
+                );
             color: white;
-            border-radius: 16px;
-            padding: 35px;
-            margin-bottom: 25px;
-            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.15);
+            border: 1px solid #26345a;
+            border-radius: 18px;
+            padding: 38px;
+            margin-bottom: 24px;
+            box-shadow:
+                0 12px 45px rgba(0, 0, 0, 0.30);
+        }
+
+        .hero::after {
+            content: "";
+            position: absolute;
+            width: 220px;
+            height: 220px;
+            right: -80px;
+            top: -100px;
+            border-radius: 50%;
+            background: rgba(6, 182, 212, 0.10);
+            box-shadow:
+                0 0 80px rgba(6, 182, 212, 0.10);
         }
 
         .hero h1 {
+            position: relative;
+            z-index: 1;
             font-size: 30px;
             margin-bottom: 10px;
+            letter-spacing: 0.5px;
         }
 
         .hero p {
-            color: #c7d2fe;
+            position: relative;
+            z-index: 1;
+            color: #a5b4fc;
             font-size: 14px;
-            line-height: 1.6;
-            max-width: 750px;
+            line-height: 1.7;
+            max-width: 760px;
         }
 
         .privacy-badge {
+            position: relative;
+            z-index: 1;
             display: inline-block;
-            margin-top: 18px;
-            padding: 7px 12px;
+            margin-top: 19px;
+            padding: 8px 13px;
             border-radius: 20px;
-            background: rgba(255, 255, 255, 0.12);
-            color: #ddd6fe;
+            background: rgba(6, 182, 212, 0.10);
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            color: #67e8f9;
             font-size: 11px;
             font-weight: bold;
+            letter-spacing: 0.5px;
         }
 
         .grid {
@@ -116,44 +191,60 @@
         }
 
         .card {
-            background: white;
-            border: 1px solid #e2e8f0;
-            border-radius: 14px;
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(15, 23, 42, 0.98),
+                    rgba(10, 18, 34, 0.98)
+                );
+            border: 1px solid #1e293b;
+            border-radius: 15px;
             padding: 25px;
-            box-shadow: 0 5px 18px rgba(15, 23, 42, 0.04);
+            box-shadow:
+                0 8px 30px rgba(0, 0, 0, 0.22);
         }
 
         .card h2 {
+            color: #f8fafc;
             font-size: 19px;
             margin-bottom: 8px;
         }
 
         .card-description {
-            color: #64748b;
+            color: #94a3b8;
             font-size: 13px;
-            line-height: 1.5;
+            line-height: 1.6;
             margin-bottom: 22px;
         }
 
         .privacy-box {
-            background: #f5f3ff;
-            border: 1px solid #ddd6fe;
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(6, 182, 212, 0.07),
+                    rgba(124, 58, 237, 0.07)
+                );
+            border: 1px solid #263653;
             border-radius: 10px;
             padding: 18px;
             margin-bottom: 22px;
         }
 
         .privacy-box h3 {
-            color: #5b21b6;
+            color: #67e8f9;
             font-size: 14px;
             margin-bottom: 10px;
         }
 
         .privacy-box ul {
             padding-left: 18px;
-            color: #475569;
+            color: #94a3b8;
             font-size: 12px;
-            line-height: 1.8;
+            line-height: 1.9;
+        }
+
+        .privacy-box li::marker {
+            color: #06b6d4;
         }
 
         .form-group {
@@ -162,6 +253,7 @@
 
         .form-group label {
             display: block;
+            color: #cbd5e1;
             font-size: 13px;
             font-weight: bold;
             margin-bottom: 8px;
@@ -171,15 +263,36 @@
         input[type="password"] {
             width: 100%;
             padding: 12px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid #334155;
             border-radius: 8px;
             font-size: 13px;
-            background: white;
+            background: #020617;
+            color: #e2e8f0;
+        }
+
+        input[type="file"] {
+            cursor: pointer;
+        }
+
+        input[type="file"]::file-selector-button {
+            border: 1px solid #334155;
+            background: #111827;
+            color: #cbd5e1;
+            padding: 7px 11px;
+            border-radius: 6px;
+            margin-right: 10px;
+            cursor: pointer;
         }
 
         input:focus {
             outline: none;
-            border-color: #7c3aed;
+            border-color: #06b6d4;
+            box-shadow:
+                0 0 0 2px rgba(6, 182, 212, 0.10);
+        }
+
+        input::placeholder {
+            color: #64748b;
         }
 
         .file-note {
@@ -191,33 +304,44 @@
         .button {
             width: 100%;
             padding: 13px;
-            border: none;
+            border: 1px solid #0891b2;
             border-radius: 8px;
-            background: #7c3aed;
+            background:
+                linear-gradient(
+                    135deg,
+                    #0891b2,
+                    #7c3aed
+                );
             color: white;
             font-size: 14px;
             font-weight: bold;
             cursor: pointer;
+            box-shadow:
+                0 5px 18px rgba(6, 182, 212, 0.14);
+            transition: 0.2s;
         }
 
         .button:hover {
-            background: #6d28d9;
+            transform: translateY(-1px);
+            box-shadow:
+                0 8px 25px rgba(6, 182, 212, 0.22);
         }
 
         .button:disabled {
-            opacity: 0.65;
+            opacity: 0.55;
             cursor: not-allowed;
+            transform: none;
         }
 
         .warning {
             margin-top: 18px;
             padding: 13px;
             border-radius: 8px;
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            color: #9a3412;
+            background: rgba(245, 158, 11, 0.06);
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            color: #fbbf24;
             font-size: 11px;
-            line-height: 1.5;
+            line-height: 1.6;
         }
 
         .steps {
@@ -231,9 +355,15 @@
             align-items: center;
             gap: 13px;
             padding: 13px;
-            background: #f8fafc;
+            background: #0b1220;
             border-radius: 9px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid #1e293b;
+            transition: 0.2s;
+        }
+
+        .step:hover {
+            border-color: #334155;
+            transform: translateX(2px);
         }
 
         .step-number {
@@ -241,8 +371,10 @@
             height: 30px;
             min-width: 30px;
             border-radius: 50%;
-            background: #ede9fe;
-            color: #6d28d9;
+            background:
+                rgba(6, 182, 212, 0.10);
+            border: 1px solid rgba(6, 182, 212, 0.30);
+            color: #67e8f9;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -252,6 +384,7 @@
 
         .step-text strong {
             display: block;
+            color: #e2e8f0;
             font-size: 12px;
             margin-bottom: 3px;
         }
@@ -264,8 +397,8 @@
         .vault-status {
             margin-top: 22px;
             padding: 16px;
-            background: #ecfdf5;
-            border: 1px solid #bbf7d0;
+            background: rgba(34, 197, 94, 0.05);
+            border: 1px solid rgba(34, 197, 94, 0.20);
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -277,16 +410,18 @@
             height: 9px;
             border-radius: 50%;
             background: #22c55e;
+            box-shadow:
+                0 0 10px rgba(34, 197, 94, 0.65);
         }
 
         .vault-status strong {
             font-size: 12px;
-            color: #166534;
+            color: #86efac;
         }
 
         .vault-status p {
             font-size: 11px;
-            color: #15803d;
+            color: #4ade80;
             margin-top: 3px;
         }
 
@@ -306,9 +441,16 @@
             justify-content: space-between;
             gap: 15px;
             padding: 15px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
+            background: #080f1c;
+            border: 1px solid #1e293b;
             border-radius: 10px;
+            transition: 0.2s;
+        }
+
+        .file-item:hover {
+            border-color: #334155;
+            box-shadow:
+                0 0 20px rgba(6, 182, 212, 0.04);
         }
 
         .file-info {
@@ -316,6 +458,7 @@
         }
 
         .file-name {
+            color: #e2e8f0;
             font-size: 13px;
             font-weight: bold;
             word-break: break-word;
@@ -328,26 +471,35 @@
         }
 
         .download-button {
-            border: none;
+            border: 1px solid #334155;
             border-radius: 7px;
             padding: 9px 13px;
-            background: #7c3aed;
-            color: white;
+            background:
+                linear-gradient(
+                    135deg,
+                    #172554,
+                    #312e81
+                );
+            color: #c4b5fd;
             font-size: 12px;
             font-weight: bold;
             cursor: pointer;
             white-space: nowrap;
+            transition: 0.2s;
         }
 
         .download-button:hover {
-            background: #6d28d9;
+            border-color: #7c3aed;
+            color: white;
+            box-shadow:
+                0 0 16px rgba(124, 58, 237, 0.15);
         }
 
         .empty {
             padding: 25px;
             text-align: center;
-            background: #f8fafc;
-            border: 1px dashed #cbd5e1;
+            background: #080f1c;
+            border: 1px dashed #334155;
             border-radius: 10px;
             color: #64748b;
             font-size: 12px;
@@ -355,9 +507,23 @@
 
         footer {
             text-align: center;
-            color: #94a3b8;
+            color: #475569;
             font-size: 11px;
             padding: 25px;
+        }
+
+        .cyber-line {
+            height: 1px;
+            margin: 8px 0 20px;
+            background:
+                linear-gradient(
+                    90deg,
+                    transparent,
+                    #06b6d4,
+                    #7c3aed,
+                    transparent
+                );
+            opacity: 0.5;
         }
 
         @media (max-width: 750px) {
@@ -412,7 +578,6 @@
         </div>
 
         Pro Vault
-
     </div>
 
     <a href="/dashboard" class="back">
@@ -430,6 +595,8 @@
         <h1>
             Private Pro Vault
         </h1>
+
+        <div class="cyber-line"></div>
 
         <p>
             Store your files and photos in a privacy-focused vault.
@@ -464,7 +631,7 @@
             <div class="privacy-box">
 
                 <h3>
-                    Privacy Protection
+                    🛡 Privacy Protection
                 </h3>
 
                 <ul>
@@ -1088,6 +1255,7 @@ form.addEventListener("submit", async function(event) {
 /* =========================================================
    PRO VAULT DOWNLOAD + DECRYPT
    ========================================================= */
+
 document
     .querySelectorAll(".download-button")
     .forEach(function(button) {
@@ -1111,6 +1279,8 @@ document
         );
 
     });
+
+
 async function downloadFile(
     fileId,
     originalName
@@ -1375,7 +1545,9 @@ async function downloadFile(
 }
 
 </script>
+
 <script src="{{ url_for('static', filename='security.js') }}"></script>
+
 </body>
 
 </html>

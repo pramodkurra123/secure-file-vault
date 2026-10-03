@@ -77,16 +77,29 @@ def admin_required():
 
 def send_otp_email(email, otp):
 
-    smtp_host = os.environ.get("BREVO_SMTP_HOST")
+    smtp_host = os.environ.get(
+        "BREVO_SMTP_HOST"
+    )
+
     smtp_port = int(
         os.environ.get(
             "BREVO_SMTP_PORT",
             "2525"
         )
     )
-    smtp_login = os.environ.get("BREVO_SMTP_LOGIN")
-    smtp_password = os.environ.get("BREVO_SMTP_PASSWORD")
-    sender_email = os.environ.get("BREVO_SENDER_EMAIL")
+
+    smtp_login = os.environ.get(
+        "BREVO_SMTP_LOGIN"
+    )
+
+    smtp_password = os.environ.get(
+        "BREVO_SMTP_PASSWORD"
+    )
+
+    sender_email = os.environ.get(
+        "BREVO_SENDER_EMAIL"
+    )
+
     sender_name = os.environ.get(
         "BREVO_SENDER_NAME",
         "Secure File Vault"
@@ -114,8 +127,14 @@ def send_otp_email(email, otp):
 
     message = EmailMessage()
 
-    message["Subject"] = "Secure File Vault - Login OTP"
-    message["From"] = f"{sender_name} <{sender_email}>"
+    message["Subject"] = (
+        "Secure File Vault - Login OTP"
+    )
+
+    message["From"] = (
+        f"{sender_name} <{sender_email}>"
+    )
+
     message["To"] = email
 
     message.set_content(
@@ -149,7 +168,9 @@ If you did not attempt to log in, you can safely ignore this email.
                 smtp_password
             )
 
-            server.send_message(message)
+            server.send_message(
+                message
+            )
 
         print(
             f"BREVO SUCCESS: OTP email sent to {email}"
@@ -191,7 +212,9 @@ def send_security_alert_email(
     timestamp
 ):
 
-    smtp_host = os.environ.get("BREVO_SMTP_HOST")
+    smtp_host = os.environ.get(
+        "BREVO_SMTP_HOST"
+    )
 
     smtp_port = int(
         os.environ.get(
@@ -300,7 +323,9 @@ Secure File Vault
                 smtp_password
             )
 
-            server.send_message(email)
+            server.send_message(
+                email
+            )
 
         print(
             f"SECURITY ALERT EMAIL SENT TO "
@@ -603,7 +628,7 @@ def login():
 
         failed_count += 1
 
-                if failed_count == 3:
+        if failed_count == 3:
 
             alert_message = (
                 "Three failed login attempts detected. "
@@ -644,6 +669,24 @@ def login():
         else:
 
             connection.commit()
+
+        connection.close()
+
+        if failed_count >= 3:
+
+            return render_template(
+                "login.html",
+                error=(
+                    "This IP address is temporarily "
+                    "blocked for invalid login attempts. "
+                    "Try again after 5 minutes."
+                )
+            )
+
+        return render_template(
+            "login.html",
+            error="Invalid username or password"
+        )
 
 
 @app.route("/verify-otp", methods=["GET", "POST"])
@@ -837,7 +880,9 @@ def verify_otp():
             )
         )
 
-    return render_template("otp.html")
+    return render_template(
+        "otp.html"
+    )
 
 
 @app.route("/resend-otp", methods=["POST"])
@@ -1427,7 +1472,6 @@ def admin_download(file_id):
 
         return "File not found.", 404
 
-    owner = file_record[0]
     filename = file_record[1]
     encrypted_data = file_record[2]
 

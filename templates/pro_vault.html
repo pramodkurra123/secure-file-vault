@@ -412,11 +412,13 @@
     <div class="header">
 
         <div class="title-area">
+
             <h1>🔐 Pro Vault</h1>
 
             <p>
                 Secure encrypted file storage with password recovery
             </p>
+
         </div>
 
         <a
@@ -610,11 +612,13 @@
                                 <div class="file-actions">
 
                                     <button
+                                        type="button"
                                         class="small-button"
                                         onclick="downloadFile({{ file[0] }}, {{ file[1]|tojson }})"
                                     >
                                         ⬇ Download
                                     </button>
+
 
                                     <form
                                         method="POST"
@@ -829,22 +833,45 @@
 let vaultKey = null;
 
 
+/* =========================================================
+   STATUS
+   ========================================================= */
+
 function showStatus(
     message,
     type
 ) {
 
     const status =
-        document.getElementById("status");
+        document.getElementById(
+            "status"
+        );
 
-    status.textContent = message;
+    status.textContent =
+        message;
 
     status.className =
         "status " + type;
 }
 
 
-function hexToBytes(hex) {
+/* =========================================================
+   HEX TO BYTES
+   ========================================================= */
+
+function hexToBytes(
+    hex
+) {
+
+    if (
+        !hex ||
+        hex.length % 2 !== 0
+    ) {
+
+        throw new Error(
+            "Invalid vault key."
+        );
+    }
 
     const bytes =
         new Uint8Array(
@@ -857,7 +884,7 @@ function hexToBytes(hex) {
         i += 2
     ) {
 
-        bytes[i / 2] =
+        const value =
             parseInt(
                 hex.substring(
                     i,
@@ -865,11 +892,27 @@ function hexToBytes(hex) {
                 ),
                 16
             );
+
+        if (
+            Number.isNaN(value)
+        ) {
+
+            throw new Error(
+                "Invalid vault key."
+            );
+        }
+
+        bytes[i / 2] =
+            value;
     }
 
     return bytes;
 }
 
+
+/* =========================================================
+   CRYPTO KEY
+   ========================================================= */
 
 async function getCryptoKey() {
 
@@ -877,6 +920,15 @@ async function getCryptoKey() {
 
         throw new Error(
             "Pro Vault is locked."
+        );
+    }
+
+    if (
+        vaultKey.length !== 32
+    ) {
+
+        throw new Error(
+            "Invalid 256-bit vault key."
         );
     }
 
@@ -895,6 +947,10 @@ async function getCryptoKey() {
 }
 
 
+/* =========================================================
+   UNLOCK VAULT
+   ========================================================= */
+
 async function unlockVault() {
 
     const password =
@@ -912,7 +968,9 @@ async function unlockVault() {
         return;
     }
 
-    if (password.length < 8) {
+    if (
+        password.length < 8
+    ) {
 
         showStatus(
             "Vault password must contain at least 8 characters.",
@@ -947,12 +1005,24 @@ async function unlockVault() {
                 "{{ url_for('pro_vault_unlock') }}",
                 {
                     method: "POST",
-                    body: formData
+                    body: formData,
+                    cache: "no-store"
                 }
             );
 
-        const data =
-            await response.json();
+        let data;
+
+        try {
+
+            data =
+                await response.json();
+
+        } catch (error) {
+
+            throw new Error(
+                "Server returned an invalid response."
+            );
+        }
 
         if (!response.ok) {
 
@@ -969,10 +1039,22 @@ async function unlockVault() {
             );
         }
 
-        vaultKey =
+        const newKey =
             hexToBytes(
                 data.vault_key
             );
+
+        if (
+            newKey.length !== 32
+        ) {
+
+            throw new Error(
+                "Invalid vault key received."
+            );
+        }
+
+        vaultKey =
+            newKey;
 
         document.getElementById(
             "vaultStatus"
@@ -1002,7 +1084,8 @@ async function unlockVault() {
         vaultKey = null;
 
         showStatus(
-            error.message,
+            error.message ||
+            "Unable to unlock Pro Vault.",
             "error"
         );
 
@@ -1015,6 +1098,12 @@ async function unlockVault() {
     }
 }
 
+
+/* =========================================================
+   ENCRYPT FILE
+   FORMAT:
+   12-BYTE IV + AES-GCM CIPHERTEXT
+   ========================================================= */
 
 async function encryptFile(
     file
@@ -1033,29 +1122,24 @@ async function encryptFile(
             new Uint8Array(12)
         );
 
-    const encrypted =
-        new Uint8Array(
-            await crypto.subtle.encrypt(
-                {
-                    name: "AES-GCM",
-                    iv: iv
-                },
-                key,
-                data
-            )
+    const encryptedBuffer =
+        await crypto.subtle.encrypt(
+            {
+                name: "AES-GCM",
+                iv: iv
+            },
+            key,
+            data
         );
 
-    /*
-        Stored encrypted format:
-
-        12 bytes IV
-        +
-        AES-GCM encrypted data
-    */
+    const encrypted =
+        new Uint8Array(
+            encryptedBuffer
+        );
 
     const result =
         new Uint8Array(
-            iv.length +
+            12 +
             encrypted.length
         );
 
@@ -1066,7 +1150,7 @@ async function encryptFile(
 
     result.set(
         encrypted,
-        iv.length
+        12
     );
 
     return new Blob(
@@ -1077,6 +1161,12 @@ async function encryptFile(
     );
 }
 
+
+/* =========================================================
+   DECRYPT FILE
+   EXPECTS:
+   12-BYTE IV + AES-GCM CIPHERTEXT
+   ========================================================= */
 
 async function decryptFile(
     encryptedData
@@ -1090,10 +1180,22 @@ async function decryptFile(
             encryptedData
         );
 
-    if (data.length < 13) {
+    /*
+        AES-GCM uses:
+
+        12 bytes IV
+        +
+        ciphertext
+        +
+        16 bytes authentication tag
+    */
+
+    if (
+        data.length < 28
+    ) {
 
         throw new Error(
-            "Invalid encrypted file."
+            "Encrypted file is invalid or corrupted."
         );
     }
 
@@ -1108,21 +1210,35 @@ async function decryptFile(
             12
         );
 
-    const decrypted =
-        await crypto.subtle.decrypt(
-            {
-                name: "AES-GCM",
-                iv: iv
-            },
-            key,
-            ciphertext
+    try {
+
+        const decrypted =
+            await crypto.subtle.decrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv
+                },
+                key,
+                ciphertext
+            );
+
+        return new Uint8Array(
+            decrypted
         );
 
-    return new Uint8Array(
-        decrypted
-    );
+    } catch (error) {
+
+        throw new Error(
+            "Unable to decrypt this file. " +
+            "The file may have been created with a different vault key."
+        );
+    }
 }
 
+
+/* =========================================================
+   UPLOAD FILE
+   ========================================================= */
 
 async function uploadFile() {
 
@@ -1224,8 +1340,19 @@ async function uploadFile() {
                 }
             );
 
-        const data =
-            await response.json();
+        let data;
+
+        try {
+
+            data =
+                await response.json();
+
+        } catch (error) {
+
+            throw new Error(
+                "Server returned an invalid response."
+            );
+        }
 
         if (!response.ok) {
 
@@ -1244,7 +1371,9 @@ async function uploadFile() {
 
         setTimeout(
             function() {
+
                 window.location.reload();
+
             },
             900
         );
@@ -1252,7 +1381,8 @@ async function uploadFile() {
     } catch (error) {
 
         showStatus(
-            error.message,
+            error.message ||
+            "Upload failed.",
             "error"
         );
 
@@ -1263,6 +1393,10 @@ async function uploadFile() {
     }
 }
 
+
+/* =========================================================
+   MIME TYPE
+   ========================================================= */
 
 function getMimeType(
     filename
@@ -1287,6 +1421,9 @@ function getMimeType(
 
         json:
             "application/json",
+
+        xml:
+            "application/xml",
 
         html:
             "text/html",
@@ -1318,11 +1455,17 @@ function getMimeType(
         svg:
             "image/svg+xml",
 
+        ico:
+            "image/x-icon",
+
         mp3:
             "audio/mpeg",
 
         wav:
             "audio/wav",
+
+        ogg:
+            "audio/ogg",
 
         mp4:
             "video/mp4",
@@ -1330,11 +1473,17 @@ function getMimeType(
         webm:
             "video/webm",
 
+        avi:
+            "video/x-msvideo",
+
         zip:
             "application/zip",
 
         rar:
             "application/vnd.rar",
+
+        "7z":
+            "application/x-7z-compressed",
 
         doc:
             "application/msword",
@@ -1355,23 +1504,40 @@ function getMimeType(
             "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     };
 
-    return types[extension] ||
-        "application/octet-stream";
+    return (
+        types[extension] ||
+        "application/octet-stream"
+    );
 }
 
+
+/* =========================================================
+   DOWNLOAD BYTES
+   ========================================================= */
 
 function downloadBytes(
     bytes,
     filename
 ) {
 
+    if (
+        !bytes ||
+        bytes.length === 0
+    ) {
+
+        throw new Error(
+            "The decrypted file is empty."
+        );
+    }
+
     const blob =
         new Blob(
             [bytes],
             {
-                type: getMimeType(
-                    filename
-                )
+                type:
+                    getMimeType(
+                        filename
+                    )
             }
         );
 
@@ -1385,7 +1551,11 @@ function downloadBytes(
             "a"
         );
 
-    link.href = url;
+    link.style.display =
+        "none";
+
+    link.href =
+        url;
 
     link.download =
         filename;
@@ -1396,13 +1566,26 @@ function downloadBytes(
 
     link.click();
 
-    link.remove();
+    document.body.removeChild(
+        link
+    );
 
-    URL.revokeObjectURL(
-        url
+    setTimeout(
+        function() {
+
+            URL.revokeObjectURL(
+                url
+            );
+
+        },
+        1000
     );
 }
 
+
+/* =========================================================
+   DOWNLOAD PRO VAULT FILE
+   ========================================================= */
 
 async function downloadFile(
     fileId,
@@ -1431,7 +1614,8 @@ async function downloadFile(
                 `/pro-vault-download/${fileId}`,
                 {
                     method: "GET",
-                    cache: "no-store"
+                    cache: "no-store",
+                    credentials: "same-origin"
                 }
             );
 
@@ -1446,38 +1630,70 @@ async function downloadFile(
                     await response.json();
 
                 if (data.message) {
+
                     message =
                         data.message;
                 }
 
             } catch (_) {}
 
+            if (
+                response.status === 403
+            ) {
+
+                vaultKey = null;
+
+                document.getElementById(
+                    "uploadButton"
+                ).disabled = true;
+
+                document.getElementById(
+                    "vaultStatus"
+                ).textContent =
+                    "● Locked";
+
+                document.getElementById(
+                    "vaultStatus"
+                ).className =
+                    "state-value locked";
+            }
+
             throw new Error(
                 message
             );
         }
 
+
         const encryptedData =
             await response.arrayBuffer();
+
+
+        if (
+            encryptedData.byteLength < 28
+        ) {
+
+            throw new Error(
+                "The downloaded encrypted data is invalid."
+            );
+        }
+
 
         const decrypted =
             await decryptFile(
                 encryptedData
             );
 
-        /*
-            The database stores the exact
-            original filename.
 
-            The browser creates the final
-            file using that filename and
-            its corresponding MIME type.
+        /*
+            Save the decrypted data using
+            the exact original filename.
         */
 
         downloadBytes(
             decrypted,
             filename
         );
+
 
         showStatus(
             `${filename} downloaded successfully.`,
@@ -1486,20 +1702,35 @@ async function downloadFile(
 
     } catch (error) {
 
+        console.error(
+            "PRO VAULT DOWNLOAD ERROR:",
+            error
+        );
+
         showStatus(
             "Download failed: " +
-            error.message,
+            (
+                error.message ||
+                "Unable to decrypt file."
+            ),
             "error"
         );
     }
 }
 
 
-document
-    .getElementById(
+/* =========================================================
+   ENTER KEY TO UNLOCK
+   ========================================================= */
+
+const passwordInput =
+    document.getElementById(
         "vault_password"
-    )
-    .addEventListener(
+    );
+
+if (passwordInput) {
+
+    passwordInput.addEventListener(
         "keydown",
         function(event) {
 
@@ -1513,6 +1744,21 @@ document
             }
         }
     );
+}
+
+
+/* =========================================================
+   CLEAR VAULT KEY WHEN PAGE IS CLOSED
+   ========================================================= */
+
+window.addEventListener(
+    "pagehide",
+    function() {
+
+        vaultKey = null;
+
+    }
+);
 
 </script>
 

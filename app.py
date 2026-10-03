@@ -1552,70 +1552,54 @@ def pro_vault():
 # UNLOCK PRO VAULT
 # =========================================================
 
-@app.route(
-    "/pro-vault-unlock",
-    methods=["POST"]
-)
+@app.route("/pro-vault-unlock", methods=["POST"])
 def pro_vault_unlock():
 
     if not login_required():
-
         return {
             "message": "Authentication required."
         }, 401
 
-    username = session.get(
-        "username"
-    )
-
-    password = request.form.get(
-        "vault_password",
-        ""
-    ).strip()
+    username = session.get("username")
+    password = request.form.get("vault_password", "")
 
     if not password:
-
         return {
             "message": "Vault password is required."
         }, 400
 
-    if len(password) < 8:
-
-        return {
-            "message": (
-                "Vault password must contain "
-                "at least 8 characters."
-            )
-        }, 400
-
     try:
-
-        # Make sure the user has a recoverable
-        # 32-byte vault encryption key.
-        vault_key = create_vault_key(
-            username
-        )
+        # Make sure a vault key exists.
+        vault_key = create_vault_key(username)
 
         if not vault_key:
-
             return {
-                "message": "Vault key is unavailable."
+                "message": "Unable to initialize Pro Vault."
             }, 500
 
-        password_hash = get_vault_password_hash(
-            username
-        )
+        password_hash = get_vault_password_hash(username)
 
-        # -------------------------------------------------
-        # FIRST-TIME VAULT SETUP
-        # -------------------------------------------------
-
+        # First-time vault setup.
         if not password_hash:
+
+            if len(password) < 8:
+                return {
+                    "message": "Vault password must contain at least 8 characters."
+                }, 400
 
             set_vault_password(
                 username,
                 password
             )
+
+            # Read the newly stored password hash again.
+            if not verify_vault_password(
+                username,
+                password
+            ):
+                return {
+                    "message": "Unable to create vault password."
+                }, 500
 
             session["vault_unlocked"] = True
 
@@ -1624,22 +1608,24 @@ def pro_vault_unlock():
                 "vault_key": vault_key.hex()
             }, 200
 
-        # -------------------------------------------------
-        # EXISTING VAULT PASSWORD
-        # -------------------------------------------------
-
-        if not check_password_hash(
-            password_hash,
+        # Verify the current/new vault password.
+        if not verify_vault_password(
+            username,
             password
         ):
-
-            session["vault_unlocked"] = False
-
             return {
                 "message": "Incorrect vault password."
             }, 401
 
         session["vault_unlocked"] = True
+
+        # Get the same existing vault key.
+        vault_key = get_vault_key(username)
+
+        if not vault_key:
+            return {
+                "message": "Unable to retrieve Pro Vault key."
+            }, 500
 
         return {
             "message": "Vault unlocked.",

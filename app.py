@@ -36,7 +36,7 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 if not app.secret_key:
     raise RuntimeError("FLASK_SECRET_KEY is not set.")
 
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 6 * 1024 * 1024
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
@@ -53,7 +53,12 @@ create_database()
 # =========================================================
 
 def utc_now():
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+    return datetime.now(
+        timezone.utc
+    ).replace(
+        tzinfo=None
+    )
 
 
 def to_ist(value):
@@ -62,11 +67,15 @@ def to_ist(value):
         return ""
 
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(
+            tzinfo=timezone.utc
+        )
 
     return value.astimezone(
         ZoneInfo("Asia/Kolkata")
-    ).strftime("%d-%m-%Y %I:%M:%S %p")
+    ).strftime(
+        "%d-%m-%Y %I:%M:%S %p"
+    )
 
 
 app.jinja_env.filters["ist"] = to_ist
@@ -83,6 +92,7 @@ def get_client_ip():
     )
 
     if forwarded_for:
+
         ip = forwarded_for.split(",")[0].strip()
 
         if ip:
@@ -93,7 +103,11 @@ def get_client_ip():
     )
 
     if real_ip:
-        return real_ip.strip()
+
+        ip = real_ip.strip()
+
+        if ip:
+            return ip
 
     return request.remote_addr or "UNKNOWN"
 
@@ -139,7 +153,9 @@ def send_otp_email(email, otp):
         sender_email
     ]):
 
-        print("BREVO SMTP SETTINGS ARE MISSING")
+        print(
+            "BREVO SMTP SETTINGS ARE MISSING"
+        )
 
         return False
 
@@ -188,7 +204,9 @@ Secure File Vault
                 smtp_password
             )
 
-            server.send_message(message)
+            server.send_message(
+                message
+            )
 
         print(
             f"OTP EMAIL SENT TO {email}"
@@ -274,7 +292,9 @@ def send_security_alert_email(
 
         return False
 
-    ist_time = to_ist(timestamp)
+    ist_time = to_ist(
+        timestamp
+    )
 
     email = EmailMessage()
 
@@ -328,7 +348,9 @@ Secure File Vault
                 smtp_password
             )
 
-            server.send_message(email)
+            server.send_message(
+                email
+            )
 
         print(
             f"SECURITY ALERT EMAIL SENT TO "
@@ -363,7 +385,10 @@ Secure File Vault
 # OTP GENERATION
 # =========================================================
 
-def generate_and_send_otp(username, email):
+def generate_and_send_otp(
+    username,
+    email
+):
 
     connection = get_connection()
 
@@ -513,6 +538,8 @@ def login():
 
         ip_address = get_client_ip()
 
+        now = utc_now()
+
         print(
             f"LOGIN REQUEST | "
             f"Username: {username} | "
@@ -520,6 +547,10 @@ def login():
         )
 
         connection = get_connection()
+
+        # -------------------------------------------------
+        # FIND USER
+        # -------------------------------------------------
 
         user = connection.execute(
             """
@@ -535,12 +566,66 @@ def login():
         ).fetchone()
 
         # -------------------------------------------------
-        # USER NOT FOUND
+        # COUNT RECENT FAILED ATTEMPTS
+        # -------------------------------------------------
+
+        failed_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM login_attempts
+            WHERE ip_address = %s
+            AND status = 'FAILED'
+            AND timestamp >= %s
+            """,
+            (
+                ip_address,
+                now - timedelta(minutes=5)
+            )
+        ).fetchone()[0]
+
+        print(
+            f"FAILED LOGIN COUNT | "
+            f"IP: {ip_address} | "
+            f"Count: {failed_count}"
+        )
+
+        # -------------------------------------------------
+        # BLOCK AFTER 3 PREVIOUS FAILURES
+        # -------------------------------------------------
+
+        if failed_count >= 3:
+
+            if user is not None and user[3] == "admin":
+
+                print(
+                    f"ADMIN ATTEMPT AFTER ALERT | "
+                    f"IP: {ip_address}"
+                )
+
+            else:
+
+                connection.close()
+
+                print(
+                    f"IP BLOCKED | "
+                    f"IP: {ip_address} | "
+                    f"Failed Count: {failed_count}"
+                )
+
+                return render_template(
+                    "login.html",
+                    error=(
+                        "This IP address is temporarily "
+                        "blocked for 5 minutes because "
+                        "of multiple failed login attempts."
+                    )
+                )
+
+        # -------------------------------------------------
+        # UNKNOWN USERNAME
         # -------------------------------------------------
 
         if user is None:
-
-            now = utc_now()
 
             connection.execute(
                 """
@@ -561,165 +646,43 @@ def login():
                 )
             )
 
+            failed_count += 1
+
             connection.commit()
 
             print(
                 f"FAILED LOGIN | "
                 f"Unknown user | "
-                f"IP: {ip_address}"
-            )
-
-            connection.close()
-
-            return render_template(
-                "login.html",
-                error="Invalid username or password"
-            )
-
-        db_username = user[1]
-        password_hash = user[2]
-        role = user[3]
-        email = user[4]
-
-        password_valid = check_password_hash(
-            password_hash,
-            password
-        )
-
-        # -------------------------------------------------
-        # ADMIN LOGIN
-        # -------------------------------------------------
-
-        if role == "admin":
-
-            if not password_valid:
-
-                now = utc_now()
-
-                connection.execute(
-                    """
-                    INSERT INTO login_attempts
-                    (
-                        username,
-                        ip_address,
-                        timestamp,
-                        status
-                    )
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (
-                        db_username,
-                        ip_address,
-                        now,
-                        "FAILED"
-                    )
-                )
-
-                connection.commit()
-
-                print(
-                    f"ADMIN FAILED LOGIN | "
-                    f"Username: {db_username} | "
-                    f"IP: {ip_address}"
-                )
-
-                connection.close()
-
-                return render_template(
-                    "login.html",
-                    error="Invalid username or password"
-                )
-
-        # -------------------------------------------------
-        # NORMAL USER LOGIN
-        # -------------------------------------------------
-
-        else:
-
-            now = utc_now()
-
-            failed_count = connection.execute(
-                """
-                SELECT COUNT(*)
-                FROM login_attempts
-                WHERE ip_address = %s
-                AND status = 'FAILED'
-                AND timestamp >= %s
-                """,
-                (
-                    ip_address,
-                    now - timedelta(minutes=5)
-                )
-            ).fetchone()[0]
-
-            print(
-                f"FAILED LOGIN COUNT BEFORE CHECK | "
                 f"IP: {ip_address} | "
                 f"Count: {failed_count}"
             )
 
-            # Existing block
+            # -------------------------------------------------
+            # SECURITY ALERT
+            # -------------------------------------------------
 
-            if failed_count >= 3:
+            if failed_count == 3:
 
-                print(
-                    f"IP BLOCKED | "
-                    f"IP: {ip_address} | "
-                    f"Existing failed count: {failed_count}"
+                alert_message = (
+                    "Three failed login attempts "
+                    "detected from the same IP address."
                 )
 
-                connection.close()
-
-                return render_template(
-                    "login.html",
-                    error=(
-                        "This IP address is temporarily "
-                        "blocked for 5 minutes."
-                    )
-                )
-
-            # Wrong password
-
-            if not password_valid:
-
-                connection.execute(
+                existing_alert = connection.execute(
                     """
-                    INSERT INTO login_attempts
-                    (
-                        username,
-                        ip_address,
-                        timestamp,
-                        status
-                    )
-                    VALUES (%s, %s, %s, %s)
+                    SELECT id
+                    FROM alerts
+                    WHERE ip_address = %s
+                    AND timestamp >= %s
+                    LIMIT 1
                     """,
                     (
-                        db_username,
                         ip_address,
-                        now,
-                        "FAILED"
+                        now - timedelta(minutes=5)
                     )
-                )
+                ).fetchone()
 
-                failed_count += 1
-
-                connection.commit()
-
-                print(
-                    f"FAILED LOGIN | "
-                    f"Username: {db_username} | "
-                    f"IP: {ip_address} | "
-                    f"Count: {failed_count}"
-                )
-
-                # Third failed attempt
-
-                if failed_count >= 3:
-
-                    alert_message = (
-                        "Three failed login attempts "
-                        "detected from the same IP address."
-                    )
+                if existing_alert is None:
 
                     connection.execute(
                         """
@@ -740,12 +703,12 @@ def login():
 
                     connection.commit()
 
-                    connection.close()
-
                     print(
                         f"SECURITY ALERT CREATED | "
                         f"IP: {ip_address}"
                     )
+
+                    connection.close()
 
                     email_sent = (
                         send_security_alert_email(
@@ -759,31 +722,202 @@ def login():
 
                         print(
                             f"SECURITY ALERT EMAIL "
-                            f"SUCCESS | IP: {ip_address}"
+                            f"SUCCESS | "
+                            f"IP: {ip_address}"
                         )
 
                     else:
 
                         print(
                             f"SECURITY ALERT EMAIL "
-                            f"FAILED | IP: {ip_address}"
+                            f"FAILED | "
+                            f"IP: {ip_address}"
                         )
+
+                else:
+
+                    connection.close()
+
+                return render_template(
+                    "login.html",
+                    error=(
+                        "Too many failed attempts. "
+                        "This IP address is blocked "
+                        "for 5 minutes."
+                    )
+                )
+
+            connection.close()
+
+            return render_template(
+                "login.html",
+                error="Invalid username or password"
+            )
+
+        # -------------------------------------------------
+        # USER DETAILS
+        # -------------------------------------------------
+
+        db_username = user[1]
+        password_hash = user[2]
+        role = user[3]
+        email = user[4]
+
+        password_valid = check_password_hash(
+            password_hash,
+            password
+        )
+
+        # -------------------------------------------------
+        # WRONG PASSWORD
+        # -------------------------------------------------
+
+        if not password_valid:
+
+            connection.execute(
+                """
+                INSERT INTO login_attempts
+                (
+                    username,
+                    ip_address,
+                    timestamp,
+                    status
+                )
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    db_username,
+                    ip_address,
+                    now,
+                    "FAILED"
+                )
+            )
+
+            failed_count += 1
+
+            connection.commit()
+
+            print(
+                f"FAILED LOGIN | "
+                f"Username: {db_username} | "
+                f"Role: {role} | "
+                f"IP: {ip_address} | "
+                f"Count: {failed_count}"
+            )
+
+            # -------------------------------------------------
+            # THIRD FAILED ATTEMPT
+            # -------------------------------------------------
+
+            if failed_count == 3:
+
+                alert_message = (
+                    "Three failed login attempts "
+                    "detected from the same IP address."
+                )
+
+                existing_alert = connection.execute(
+                    """
+                    SELECT id
+                    FROM alerts
+                    WHERE ip_address = %s
+                    AND timestamp >= %s
+                    LIMIT 1
+                    """,
+                    (
+                        ip_address,
+                        now - timedelta(minutes=5)
+                    )
+                ).fetchone()
+
+                if existing_alert is None:
+
+                    connection.execute(
+                        """
+                        INSERT INTO alerts
+                        (
+                            ip_address,
+                            message,
+                            timestamp
+                        )
+                        VALUES (%s, %s, %s)
+                        """,
+                        (
+                            ip_address,
+                            alert_message,
+                            now
+                        )
+                    )
+
+                    connection.commit()
+
+                    print(
+                        f"SECURITY ALERT CREATED | "
+                        f"IP: {ip_address}"
+                    )
+
+                    connection.close()
+
+                    email_sent = (
+                        send_security_alert_email(
+                            ip_address,
+                            alert_message,
+                            now
+                        )
+                    )
+
+                    if email_sent:
+
+                        print(
+                            f"SECURITY ALERT EMAIL "
+                            f"SUCCESS | "
+                            f"IP: {ip_address}"
+                        )
+
+                    else:
+
+                        print(
+                            f"SECURITY ALERT EMAIL "
+                            f"FAILED | "
+                            f"IP: {ip_address}"
+                        )
+
+                else:
+
+                    connection.close()
+
+                # -------------------------------------------------
+                # ADMIN IS NOT BLOCKED
+                # NORMAL USER IS BLOCKED
+                # -------------------------------------------------
+
+                if role == "admin":
 
                     return render_template(
                         "login.html",
                         error=(
-                            "Too many failed attempts. "
-                            "This IP address is blocked "
-                            "for 5 minutes."
+                            "Multiple failed login "
+                            "attempts detected. "
+                            "A security alert has been "
+                            "sent to the administrator."
                         )
                     )
 
-                connection.close()
-
                 return render_template(
                     "login.html",
-                    error="Invalid username or password"
+                    error=(
+                        "Too many failed attempts. "
+                        "This IP address is blocked "
+                        "for 5 minutes."
+                    )
                 )
+
+            connection.close()
+
+            return render_template(
+                "login.html",
+                error="Invalid username or password"
+            )
 
         # -------------------------------------------------
         # PASSWORD CORRECT
@@ -801,8 +935,6 @@ def login():
                     "Please contact the administrator."
                 )
             )
-
-        now = utc_now()
 
         connection.execute(
             """
@@ -1203,6 +1335,8 @@ def dashboard():
         username=session.get("username"),
         role=session.get("role")
     )
+
+
 # =========================================================
 # PRO VAULT
 # =========================================================
@@ -1240,6 +1374,8 @@ def pro_vault():
         "pro_vault.html",
         files=files
     )
+
+
 # =========================================================
 # PRO VAULT ENCRYPTED UPLOAD
 # =========================================================
@@ -1382,6 +1518,8 @@ def pro_vault_upload():
     return {
         "message": "Encrypted file uploaded successfully."
     }, 200
+
+
 # =========================================================
 # PRO VAULT ENCRYPTED DOWNLOAD
 # =========================================================
@@ -1423,7 +1561,9 @@ def pro_vault_download(file_id):
         }, 404
 
     original_name = file_data[0]
-    encrypted_data = bytes(file_data[1])
+    encrypted_data = bytes(
+        file_data[1]
+    )
 
     response = make_response(
         encrypted_data
@@ -1594,7 +1734,9 @@ def upload_file():
 
     if not file or not file.filename:
 
-        flash("Please select a file.")
+        flash(
+            "Please select a file."
+        )
 
         return redirect(
             url_for("upload")
@@ -1737,7 +1879,9 @@ def my_files():
         WHERE username = %s
         ORDER BY uploaded_at DESC
         """,
-        (session.get("username"),)
+        (
+            session.get("username"),
+        )
     ).fetchall()
 
     connection.close()
@@ -1831,7 +1975,9 @@ def download_file(file_id):
             "wb"
         ) as file_object:
 
-            file_object.write(encrypted_data)
+            file_object.write(
+                encrypted_data
+            )
 
         decrypt_file(
             temp_encrypted,
@@ -1856,15 +2002,26 @@ def download_file(file_id):
 
     except Exception as e:
 
-        if os.path.exists(temp_encrypted):
+        if os.path.exists(
+            temp_encrypted
+        ):
 
-            os.remove(temp_encrypted)
+            os.remove(
+                temp_encrypted
+            )
 
-        if os.path.exists(temp_decrypted):
+        if os.path.exists(
+            temp_decrypted
+        ):
 
-            os.remove(temp_decrypted)
+            os.remove(
+                temp_decrypted
+            )
 
-        return f"Download failed: {e}", 500
+        return (
+            f"Download failed: {e}",
+            500
+        )
 
 
 # =========================================================
@@ -1934,7 +2091,9 @@ def file_logs():
         WHERE username = %s
         ORDER BY timestamp DESC
         """,
-        (session.get("username"),)
+        (
+            session.get("username"),
+        )
     ).fetchall()
 
     connection.close()
@@ -2233,7 +2392,9 @@ def admin_download_file(file_id):
             "wb"
         ) as file_object:
 
-            file_object.write(encrypted_data)
+            file_object.write(
+                encrypted_data
+            )
 
         decrypt_file(
             temp_encrypted,
@@ -2247,8 +2408,13 @@ def admin_download_file(file_id):
 
             data = file_object.read()
 
-        os.remove(temp_encrypted)
-        os.remove(temp_decrypted)
+        os.remove(
+            temp_encrypted
+        )
+
+        os.remove(
+            temp_decrypted
+        )
 
         return send_file(
             io.BytesIO(data),
@@ -2258,15 +2424,26 @@ def admin_download_file(file_id):
 
     except Exception as e:
 
-        if os.path.exists(temp_encrypted):
+        if os.path.exists(
+            temp_encrypted
+        ):
 
-            os.remove(temp_encrypted)
+            os.remove(
+                temp_encrypted
+            )
 
-        if os.path.exists(temp_decrypted):
+        if os.path.exists(
+            temp_decrypted
+        ):
 
-            os.remove(temp_decrypted)
+            os.remove(
+                temp_decrypted
+            )
 
-        return f"Download failed: {e}", 500
+        return (
+            f"Download failed: {e}",
+            500
+        )
 
 
 # =========================================================
@@ -2306,10 +2483,6 @@ def admin_delete_file(file_id):
         url_for("admin_files")
     )
 
-
-# =========================================================
-# LOGIN LOGS
-# =========================================================
 
 # =========================================================
 # LOGIN LOGS
@@ -2392,6 +2565,7 @@ def delete_log(log_id):
     return redirect(
         url_for("logs")
     )
+
 
 # =========================================================
 # SECURITY ALERTS

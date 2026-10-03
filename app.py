@@ -503,9 +503,37 @@ def generate_and_send_otp(
 
     return True, "OTP sent successfully."
 
+
 # =========================================================
 # PRO VAULT KEY HELPERS
 # =========================================================
+
+def ensure_pro_vault_schema():
+    connection = get_connection()
+
+    try:
+        connection.execute("""
+            ALTER TABLE pro_vault_files
+            ADD COLUMN IF NOT EXISTS encryption_version INTEGER NOT NULL DEFAULT 1
+        """)
+
+        connection.execute("""
+            ALTER TABLE vault_keys
+            ADD COLUMN IF NOT EXISTS password_hash TEXT
+        """)
+
+        connection.commit()
+
+    except Exception:
+        connection.rollback()
+        raise
+
+    finally:
+        connection.close()
+
+
+ensure_pro_vault_schema()
+
 
 def get_recovery_key():
 
@@ -537,13 +565,14 @@ def decrypt_recovery_data(data):
     return cipher.decrypt(data)
 
 
-def get_vault_key(username):
+def get_vault_record(username):
 
     connection = get_connection()
 
     row = connection.execute(
         """
-        SELECT recovery_data
+        SELECT recovery_data,
+               password_hash
         FROM vault_keys
         WHERE username = %s
         """,
@@ -553,13 +582,14 @@ def get_vault_key(username):
     connection.close()
 
     if not row:
-        return None
+        return None, None
 
     try:
-
-        return decrypt_recovery_data(
+        vault_key = decrypt_recovery_data(
             bytes(row[0])
         )
+
+        return vault_key, row[1]
 
     except Exception as e:
 
@@ -568,7 +598,16 @@ def get_vault_key(username):
             f"{type(e).__name__}: {e}"
         )
 
-        return None
+        return None, row[1]
+
+
+def get_vault_key(username):
+
+    vault_key, _ = get_vault_record(
+        username
+    )
+
+    return vault_key
 
 
 def create_vault_key(username):
@@ -619,6 +658,70 @@ def create_vault_key(username):
     )
 
     return existing_key or vault_key
+
+
+def get_vault_password_hash(username):
+
+    _, password_hash = get_vault_record(
+        username
+    )
+
+    return password_hash
+
+
+def set_vault_password(username, password):
+
+    password_hash = generate_password_hash(
+        password
+    )
+
+    create_vault_key(username)
+
+    connection = get_connection()
+
+    connection.execute(
+        """
+        UPDATE vault_keys
+        SET password_hash = %s,
+            updated_at = %s
+        WHERE username = %s
+        """,
+        (
+            password_hash,
+            utc_now(),
+            username
+        )
+    )
+
+    connection.commit()
+    connection.close()
+
+
+def verify_vault_password(username, password):
+
+    password_hash = get_vault_password_hash(
+        username
+    )
+
+    if not password_hash:
+        return False
+
+    return check_password_hash(
+        password_hash,
+        password
+    )
+
+
+def vault_password_is_set(username):
+
+    return bool(
+        get_vault_password_hash(username)
+    )
+
+
+# =========================================================
+# HOME
+# =========================================================
 # =========================================================
 # HOME
 # =========================================================
@@ -1458,10 +1561,6 @@ def dashboard():
 # PRO VAULT
 # =========================================================
 
-# =========================================================
-# PRO VAULT
-# =========================================================
-
 @app.route("/pro-vault")
 def pro_vault():
 
@@ -1479,7 +1578,8 @@ def pro_vault():
             id,
             original_name,
             file_size,
-            uploaded_at
+            uploaded_at,
+            encryption_version
         FROM pro_vault_files
         WHERE username = %s
         ORDER BY uploaded_at DESC
@@ -1491,15 +1591,124 @@ def pro_vault():
 
     connection.close()
 
+    username = session.get("username")
+
     vault_key = create_vault_key(
-        session.get("username")
+        username
+    )
+
+    password_set = vault_password_is_set(
+        username
     )
 
     return render_template(
         "pro_vault.html",
         files=files,
-        vault_initialized=bool(vault_key)
+        vault_initialized=bool(vault_key),
+        vault_password_set=password_set,
+        vault_unlocked=session.get("vault_unlocked", False)
     )
+
+
+# =========================================================
+# UNLOCK PRO VAULT
+# =========================================================
+
+@app.route(
+    "/pro-vault-unlock",
+    methods=["POST"]
+)
+def pro_vault_unlock():
+
+    if not login_required():
+
+        return {
+            "message": "Authentication required."
+        }, 401
+
+    username = session.get(
+        "username"
+    )
+
+    password = request.form.get(
+        "vault_password",
+        ""
+    )
+
+    if not password:
+
+        return {
+            "message": "Vault password is required."
+        }, 400
+
+    try:
+
+        create_vault_key(username)
+
+        password_hash = get_vault_password_hash(
+            username
+        )
+
+        # First-time setup.
+        if not password_hash:
+
+            if len(password) < 8:
+
+                return {
+                    "message": (
+                        "Vault password must contain "
+                        "at least 8 characters."
+                    )
+                }, 400
+
+            set_vault_password(
+                username,
+                password
+            )
+
+            session["vault_unlocked"] = True
+
+            vault_key = get_vault_key(
+                username
+            )
+
+            return {
+                "message": "Vault password created.",
+                "vault_key": vault_key.hex()
+            }, 200
+
+        if not check_password_hash(
+            password_hash,
+            password
+        ):
+
+            return {
+                "message": "Incorrect vault password."
+            }, 401
+
+        session["vault_unlocked"] = True
+
+        vault_key = get_vault_key(
+            username
+        )
+
+        return {
+            "message": "Vault unlocked.",
+            "vault_key": vault_key.hex()
+        }, 200
+
+    except Exception as e:
+
+        print(
+            f"PRO VAULT UNLOCK ERROR: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return {
+            "message": "Unable to unlock Pro Vault."
+        }, 500
+
+
 # =========================================================
 # GET PRO VAULT KEY
 # =========================================================
@@ -1515,6 +1724,14 @@ def pro_vault_key():
         return {
             "message": "Authentication required."
         }, 401
+
+    if not session.get(
+        "vault_unlocked"
+    ):
+
+        return {
+            "message": "Unlock the Pro Vault first."
+        }, 403
 
     username = session.get(
         "username"
@@ -1547,6 +1764,7 @@ def pro_vault_key():
             "message": "Unable to access vault key."
         }, 500
 
+
 # =========================================================
 # PRO VAULT ENCRYPTED UPLOAD
 # =========================================================
@@ -1577,6 +1795,11 @@ def pro_vault_upload():
         "0"
     )
 
+    encryption_version = request.form.get(
+        "encryption_version",
+        "1"
+    )
+
     if not encrypted_file:
 
         return {
@@ -1595,10 +1818,14 @@ def pro_vault_upload():
             original_size
         )
 
+        encryption_version = int(
+            encryption_version
+        )
+
     except ValueError:
 
         return {
-            "message": "Invalid file size."
+            "message": "Invalid file information."
         }, 400
 
     if original_size <= 0:
@@ -1612,6 +1839,31 @@ def pro_vault_upload():
         return {
             "message": "File size must be 5 MB or less."
         }, 400
+
+    if encryption_version not in (1, 2):
+
+        return {
+            "message": "Unsupported encryption version."
+        }, 400
+
+    # Version 2 files use the server-recovered VEK.
+    if encryption_version == 2:
+
+        if not session.get(
+            "vault_unlocked"
+        ):
+
+            return {
+                "message": "Unlock the Pro Vault first."
+            }, 403
+
+        if not get_vault_key(
+            session.get("username")
+        ):
+
+            return {
+                "message": "Vault key is unavailable."
+            }, 500
 
     encrypted_data = encrypted_file.read()
 
@@ -1647,9 +1899,10 @@ def pro_vault_upload():
                 original_name,
                 file_data,
                 file_size,
-                uploaded_at
+                uploaded_at,
+                encryption_version
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 session.get("username"),
@@ -1657,7 +1910,8 @@ def pro_vault_upload():
                 original_name,
                 encrypted_data,
                 original_size,
-                utc_now()
+                utc_now(),
+                encryption_version
             )
         )
 
@@ -1683,12 +1937,141 @@ def pro_vault_upload():
     print(
         f"PRO VAULT ENCRYPTED FILE STORED | "
         f"Username: {session.get('username')} | "
-        f"File: {stored_name}"
+        f"File: {stored_name} | "
+        f"Encryption Version: {encryption_version}"
     )
 
     return {
         "message": "Encrypted file uploaded successfully."
     }, 200
+
+
+# =========================================================
+# MIGRATE OLD PRO VAULT FILE
+# =========================================================
+
+@app.route(
+    "/pro-vault-migrate/<int:file_id>",
+    methods=["POST"]
+)
+def pro_vault_migrate(file_id):
+
+    if not login_required():
+
+        return {
+            "message": "Authentication required."
+        }, 401
+
+    if not session.get(
+        "vault_unlocked"
+    ):
+
+        return {
+            "message": "Unlock the Pro Vault first."
+        }, 403
+
+    encrypted_file = request.files.get(
+        "encrypted_file"
+    )
+
+    if not encrypted_file:
+
+        return {
+            "message": "Migrated encrypted file is missing."
+        }, 400
+
+    encrypted_data = encrypted_file.read()
+
+    if not encrypted_data:
+
+        return {
+            "message": "Migrated encrypted file is empty."
+        }, 400
+
+    if len(encrypted_data) > (
+        5 * 1024 * 1024 + 4096
+    ):
+
+        return {
+            "message": "Migrated encrypted file is too large."
+        }, 400
+
+    connection = get_connection()
+
+    row = connection.execute(
+        """
+        SELECT original_name,
+               encryption_version
+        FROM pro_vault_files
+        WHERE id = %s
+        AND username = %s
+        """,
+        (
+            file_id,
+            session.get("username")
+        )
+    ).fetchone()
+
+    if not row:
+
+        connection.close()
+
+        return {
+            "message": "File not found."
+        }, 404
+
+    if row[1] == 2:
+
+        connection.close()
+
+        return {
+            "message": "File is already migrated."
+        }, 400
+
+    try:
+
+        connection.execute(
+            """
+            UPDATE pro_vault_files
+            SET file_data = %s,
+                encryption_version = 2,
+                stored_name = %s
+            WHERE id = %s
+            AND username = %s
+            """,
+            (
+                encrypted_data,
+                secrets.token_hex(16) + ".vault",
+                file_id,
+                session.get("username")
+            )
+        )
+
+        connection.commit()
+
+    except Exception as e:
+
+        connection.rollback()
+
+        print(
+            f"PRO VAULT MIGRATION ERROR: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        connection.close()
+
+        return {
+            "message": "Unable to migrate file."
+        }, 500
+
+    connection.close()
+
+    return {
+        "message": "File migrated successfully.",
+        "filename": row[0]
+    }, 200
+
+
 # =========================================================
 # FORGOT VAULT PASSWORD
 # =========================================================
@@ -1939,6 +2322,7 @@ def pro_vault_forgot_otp():
             connection.close()
 
         session["vault_reset_verified"] = True
+
         session.pop(
             "vault_reset_pending",
             None
@@ -2006,20 +2390,43 @@ def pro_vault_reset():
                 error="Passwords do not match."
             )
 
-        session.pop(
-            "vault_reset_verified",
-            None
+        username = session.get(
+            "username"
         )
 
-        return render_template(
-            "pro_vault_reset.html",
-            success=(
-                "OTP verified. "
-                "Set the new vault password "
-                "from the Pro Vault page."
-            ),
-            reset_ready=True
-        )
+        try:
+
+            # The VEK does not change.
+            # Therefore version-2 files remain decryptable.
+            set_vault_password(
+                username,
+                new_password
+            )
+
+            session["vault_unlocked"] = True
+
+            session.pop(
+                "vault_reset_verified",
+                None
+            )
+
+            return redirect(
+                url_for("pro_vault")
+            )
+
+        except Exception as e:
+
+            print(
+                f"VAULT PASSWORD RESET ERROR: "
+                f"{type(e).__name__}: {e}"
+            )
+
+            return render_template(
+                "pro_vault_reset.html",
+                error=(
+                    "Unable to reset the vault password."
+                )
+            )
 
     return render_template(
         "pro_vault_reset.html"
@@ -2047,7 +2454,8 @@ def pro_vault_download(file_id):
         """
         SELECT
             original_name,
-            file_data
+            file_data,
+            encryption_version
         FROM pro_vault_files
         WHERE id = %s
         AND username = %s
@@ -2067,9 +2475,12 @@ def pro_vault_download(file_id):
         }, 404
 
     original_name = file_data[0]
+
     encrypted_data = bytes(
         file_data[1]
     )
+
+    encryption_version = file_data[2] or 1
 
     response = make_response(
         encrypted_data
@@ -2088,10 +2499,20 @@ def pro_vault_download(file_id):
     )
 
     response.headers[
+        "X-Encryption-Version"
+    ] = str(encryption_version)
+
+    response.headers[
         "Cache-Control"
     ] = "no-store"
 
     return response
+
+
+# =========================================================
+# DELETE PRO VAULT FILE
+# =========================================================
+
 @app.route(
     "/pro-vault-delete/<int:file_id>",
     methods=["POST"]
@@ -2130,8 +2551,11 @@ def pro_vault_delete(file_id):
         url_for("pro_vault")
     )
 
+
 # =========================================================
 # ENCRYPTION FLOW
+# =========================================================
+
 # =========================================================
 
 @app.route("/encryption-flow")

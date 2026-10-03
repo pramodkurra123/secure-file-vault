@@ -485,7 +485,7 @@
                             <div class="file-meta">
                                 {{ "%.2f"|format(file[2] / 1024 / 1024) }} MB
                                 •
-                                {{ file[3]|ist }}
+                                {{ file[3] }}
                             </div>
 
                         </div>
@@ -496,9 +496,13 @@
                             <button
                                 type="button"
                                 class="small-button download-button"
-                                onclick="downloadFile({{ file[0] }}, {{ file[1]|tojson }})"
+                                onclick="downloadFile(
+                                    {{ file[0] }},
+                                    {{ file[1]|tojson }},
+                                    {{ url_for('pro_vault_download', file_id=file[0])|tojson }}
+                               )"
                             >
-                                ⬇ Download
+                               ⬇ Download
                             </button>
 
 
@@ -1539,160 +1543,135 @@
     // DOWNLOAD FILE
     // =========================================================
 
-    async function downloadFile(
-        fileId,
-        filename
-    ) {
+    async function downloadFile(fileId, filename, downloadUrl) {
 
-        /*
-         * IMPORTANT:
-         * After a page reload, vaultKey is cleared from
-         * JavaScript memory even though Flask still has
-         * vault_unlocked=True in the session.
-         *
-         * Restore the same vault key before downloading.
-         */
-        if (!vaultKey) {
+    if (!vaultKey) {
 
-            const restored =
-                await restoreVaultKey();
+        const restored = await restoreVaultKey();
 
-
-            if (!restored) {
-
-                showStatus(
-                    "Unlock the Pro Vault before downloading files.",
-                    true
-                );
-
-                return;
-
-            }
-
-        }
-
-
-        showStatus(
-            "Downloading and decrypting file..."
-        );
-
-
-        try {
-
-            const response =
-                await fetch(
-                    "{{ url_for('pro_vault_download', file_id=0) }}".replace(
-                        "/0",
-                        "/" + fileId
-                    ),
-                    {
-                        method: "GET",
-                        cache: "no-store",
-                        credentials: "same-origin"
-                    }
-                );
-
-
-            if (!response.ok) {
-
-                let message =
-                    "Unable to download the file.";
-
-
-                try {
-
-                    const data =
-                        await response.json();
-
-
-                    if (data.message) {
-
-                        message =
-                            data.message;
-
-                    }
-
-                } catch (e) {
-
-                    // Response was not JSON.
-                }
-
-
-                if (
-                    response.status === 403
-                ) {
-
-                    vaultKey = null;
-
-
-                    document.getElementById(
-                        "uploadButton"
-                    ).disabled = true;
-
-                }
-
-
-                throw new Error(
-                    message
-                );
-
-            }
-
-
-            const encryptedData =
-                await response.arrayBuffer();
-
-
-            if (
-                encryptedData.byteLength < 28
-            ) {
-
-                throw new Error(
-                    "The downloaded encrypted file is invalid."
-                );
-
-            }
-
+        if (!restored) {
 
             showStatus(
-                "Decrypting file..."
-            );
-
-
-            const decryptedData =
-                await decryptFile(
-                    encryptedData
-                );
-
-
-            downloadBytes(
-                decryptedData,
-                filename
-            );
-
-
-            showStatus(
-                "File downloaded successfully."
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "PRO VAULT DOWNLOAD ERROR:",
-                error
-            );
-
-
-            showStatus(
-                error.message ||
-                "Unable to download the file.",
+                "Unlock the Pro Vault before downloading files.",
                 true
             );
 
+            return;
+        }
+    }
+
+    const button = event ? event.currentTarget : null;
+
+    if (button) {
+        button.disabled = true;
+    }
+
+    showStatus("Downloading encrypted file...");
+
+    try {
+
+        const response = await fetch(
+            downloadUrl,
+            {
+                method: "GET",
+                credentials: "same-origin",
+                cache: "no-store",
+                headers: {
+                    "Accept": "application/octet-stream"
+                }
+            }
+        );
+
+        console.log(
+            "Download response:",
+            response.status,
+            response.headers.get("content-type"),
+            response.headers.get("x-vault-encrypted")
+        );
+
+        if (!response.ok) {
+
+            let message = "Unable to download the file.";
+
+            try {
+
+                const data = await response.json();
+
+                if (data.message) {
+                    message = data.message;
+                }
+
+            } catch (e) {
+                // Response was not JSON.
+            }
+
+            if (response.status === 401 ||
+                response.status === 403) {
+
+                vaultKey = null;
+
+                document.getElementById(
+                    "uploadButton"
+                ).disabled = true;
+            }
+
+            throw new Error(message);
         }
 
+        const encryptedData =
+            await response.arrayBuffer();
+
+        console.log(
+            "Encrypted file size:",
+            encryptedData.byteLength
+        );
+
+        if (encryptedData.byteLength < 28) {
+
+            throw new Error(
+                "The downloaded encrypted file is invalid or empty."
+            );
+        }
+
+        showStatus("Decrypting file...");
+
+        const decryptedData =
+            await decryptFile(encryptedData);
+
+        console.log(
+            "Decrypted file size:",
+            decryptedData.byteLength
+        );
+
+        downloadBytes(
+            decryptedData,
+            filename
+        );
+
+        showStatus(
+            "File downloaded successfully."
+        );
+
+    } catch (error) {
+
+        console.error(
+            "PRO VAULT DOWNLOAD ERROR:",
+            error
+        );
+
+        showStatus(
+            error.message ||
+            "Unable to download the file.",
+            true
+        );
+
+    } finally {
+
+        if (button) {
+            button.disabled = false;
+        }
     }
+}
 
 
     // =========================================================

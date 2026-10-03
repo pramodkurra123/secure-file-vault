@@ -1218,6 +1218,148 @@ def pro_vault():
     return render_template(
         "pro_vault.html"
     )
+# =========================================================
+# PRO VAULT ENCRYPTED UPLOAD
+# =========================================================
+
+@app.route(
+    "/pro-vault-upload",
+    methods=["POST"]
+)
+def pro_vault_upload():
+
+    if not login_required():
+
+        return {
+            "message": "Authentication required."
+        }, 401
+
+    encrypted_file = request.files.get(
+        "encrypted_file"
+    )
+
+    original_name = request.form.get(
+        "original_name",
+        ""
+    ).strip()
+
+    original_size = request.form.get(
+        "original_size",
+        "0"
+    )
+
+    if not encrypted_file:
+
+        return {
+            "message": "Encrypted file is missing."
+        }, 400
+
+    if not original_name:
+
+        return {
+            "message": "Original filename is missing."
+        }, 400
+
+    try:
+
+        original_size = int(
+            original_size
+        )
+
+    except ValueError:
+
+        return {
+            "message": "Invalid file size."
+        }, 400
+
+    if original_size <= 0:
+
+        return {
+            "message": "Invalid file."
+        }, 400
+
+    if original_size > 5 * 1024 * 1024:
+
+        return {
+            "message": "File size must be 5 MB or less."
+        }, 400
+
+    encrypted_data = encrypted_file.read()
+
+    if not encrypted_data:
+
+        return {
+            "message": "Encrypted file is empty."
+        }, 400
+
+    if len(encrypted_data) > (
+        5 * 1024 * 1024 + 1024
+    ):
+
+        return {
+            "message": "Encrypted file is too large."
+        }, 400
+
+    stored_name = (
+        secrets.token_hex(16)
+        + ".vault"
+    )
+
+    connection = get_connection()
+
+    try:
+
+        connection.execute(
+            """
+            INSERT INTO pro_vault_files
+            (
+                username,
+                stored_name,
+                original_name,
+                file_data,
+                file_size,
+                uploaded_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (
+                session.get("username"),
+                stored_name,
+                original_name,
+                encrypted_data,
+                original_size,
+                utc_now()
+            )
+        )
+
+        connection.commit()
+
+    except Exception as e:
+
+        connection.rollback()
+
+        print(
+            f"PRO VAULT UPLOAD ERROR: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        connection.close()
+
+        return {
+            "message": "Unable to store encrypted file."
+        }, 500
+
+    connection.close()
+
+    print(
+        f"PRO VAULT ENCRYPTED FILE STORED | "
+        f"Username: {session.get('username')} | "
+        f"File: {stored_name}"
+    )
+
+    return {
+        "message": "Encrypted file uploaded successfully."
+    }, 200
 
 
 # =========================================================

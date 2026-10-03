@@ -80,13 +80,6 @@
             color: #67e8f9;
         }
 
-        /*
-            MAIN TWO-COLUMN LAYOUT
-
-            LEFT  = Existing Pro Vault content
-            RIGHT = Flowchart + Definitions
-        */
-
         .vault-layout {
             display: grid;
             grid-template-columns: minmax(0, 1fr) 380px;
@@ -378,10 +371,6 @@
             margin-bottom: 10px;
         }
 
-        /*
-            RIGHT SIDE FLOWCHART
-        */
-
         .flow-section,
         .definitions {
             background:
@@ -449,10 +438,6 @@
             line-height: 1;
             padding: 5px 0;
         }
-
-        /*
-            RIGHT SIDE DEFINITIONS
-        */
 
         .definition {
             padding: 12px;
@@ -583,7 +568,6 @@
 
         <!-- =====================================================
              LEFT SIDE
-             EXISTING PRO VAULT CONTENT
         ====================================================== -->
 
         <div class="vault-main">
@@ -871,7 +855,6 @@
 
         <!-- =====================================================
              RIGHT SIDE
-             FLOWCHART + DEFINITIONS
         ====================================================== -->
 
         <div class="vault-info">
@@ -1203,6 +1186,13 @@ async function unlockVault() {
         const formData =
             new FormData();
 
+
+        /*
+            IMPORTANT:
+            Flask expects the field name
+            "vault_password".
+        */
+
         formData.append(
             "vault_password",
             password
@@ -1281,6 +1271,18 @@ async function unlockVault() {
 
 function hexToBytes(hex) {
 
+    if (
+        !hex ||
+        hex.length % 2 !== 0
+    ) {
+
+        throw new Error(
+            "Invalid vault key."
+        );
+
+    }
+
+
     const bytes =
         new Uint8Array(
             hex.length / 2
@@ -1293,7 +1295,7 @@ function hexToBytes(hex) {
         i += 2
     ) {
 
-        bytes[i / 2] =
+        const value =
             parseInt(
                 hex.substring(
                     i,
@@ -1301,6 +1303,19 @@ function hexToBytes(hex) {
                 ),
                 16
             );
+
+
+        if (Number.isNaN(value)) {
+
+            throw new Error(
+                "Invalid vault key."
+            );
+
+        }
+
+
+        bytes[i / 2] =
+            value;
 
     }
 
@@ -1494,8 +1509,8 @@ async function decryptV1(
     /*
         Version 1 format:
 
-        16 bytes  = salt
-        12 bytes  = IV
+        16 bytes = salt
+        12 bytes = IV
         remaining = ciphertext + GCM tag
     */
 
@@ -1609,6 +1624,7 @@ async function uploadFile() {
         );
 
         return;
+
     }
 
 
@@ -1653,8 +1669,17 @@ async function uploadFile() {
             );
 
 
+        /*
+            IMPORTANT:
+            Flask expects:
+            encrypted_file
+            original_name
+            original_size
+            encryption_version
+        */
+
         formData.append(
-            "file",
+            "encrypted_file",
             encryptedBlob,
             file.name
         );
@@ -1663,6 +1688,12 @@ async function uploadFile() {
         formData.append(
             "original_name",
             file.name
+        );
+
+
+        formData.append(
+            "original_size",
+            file.size.toString()
         );
 
 

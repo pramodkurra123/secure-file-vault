@@ -4,391 +4,328 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Pro Vault</title>
+    <title>Pro Vault - Secure File Vault</title>
 
     <style>
-
         * {
             box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, Helvetica, sans-serif;
         }
 
         body {
-            min-height: 100vh;
-            background:
-                radial-gradient(
-                    circle at 10% 10%,
-                    rgba(6, 182, 212, 0.08),
-                    transparent 28%
-                ),
-                radial-gradient(
-                    circle at 90% 20%,
-                    rgba(124, 58, 237, 0.10),
-                    transparent 30%
-                ),
-                #020617;
-            color: #e2e8f0;
-            padding: 25px;
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #0b1220;
+            color: #e5e7eb;
         }
 
         .container {
-            max-width: 1250px;
-            margin: auto;
+            width: 94%;
+            max-width: 1400px;
+            margin: 30px auto;
         }
 
-        .header {
+        .topbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 25px;
-            gap: 15px;
         }
 
-        .title-area h1 {
-            color: #f8fafc;
+        .topbar h1 {
+            margin: 0;
             font-size: 30px;
-            margin-bottom: 7px;
+            color: #ffffff;
         }
 
-        .title-area p {
-            color: #94a3b8;
-            font-size: 13px;
-        }
-
-        .back {
+        .back-button {
             text-decoration: none;
-            color: #67e8f9;
-            font-size: 13px;
+            color: #ffffff;
+            background: #1f2937;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 1px solid #374151;
         }
 
-        .back:hover {
-            text-decoration: underline;
+        .back-button:hover {
+            background: #374151;
         }
 
-        .layout {
+        .main-grid {
             display: grid;
             grid-template-columns: 1.15fr 0.85fr;
-            gap: 20px;
+            gap: 22px;
         }
 
         .card {
-            background:
-                linear-gradient(
-                    145deg,
-                    rgba(15, 23, 42, 0.98),
-                    rgba(10, 18, 34, 0.98)
-                );
-            border: 1px solid #263653;
-            border-radius: 16px;
-            padding: 22px;
-            box-shadow:
-                0 15px 50px rgba(0, 0, 0, 0.25);
+            background: #111827;
+            border: 1px solid #263244;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
         }
 
         .card h2 {
-            color: #f8fafc;
-            font-size: 18px;
+            margin-top: 0;
+            color: #ffffff;
+            font-size: 21px;
+        }
+
+        .card h3 {
+            color: #ffffff;
             margin-bottom: 8px;
         }
 
-        .sub {
-            color: #94a3b8;
-            font-size: 12px;
-            line-height: 1.6;
-            margin-bottom: 20px;
+        .muted {
+            color: #9ca3af;
+            font-size: 14px;
         }
 
         .status {
-            padding: 12px 14px;
-            border-radius: 9px;
-            margin-bottom: 18px;
-            font-size: 12px;
-            line-height: 1.5;
-            display: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            background: #172033;
+            border: 1px solid #334155;
+            color: #cbd5e1;
         }
 
         .status.success {
-            display: block;
-            background: rgba(34, 197, 94, 0.08);
-            border: 1px solid rgba(34, 197, 94, 0.25);
+            background: #10251b;
+            border-color: #285c3b;
             color: #86efac;
         }
 
         .status.error {
-            display: block;
-            background: rgba(239, 68, 68, 0.08);
-            border: 1px solid rgba(239, 68, 68, 0.25);
+            background: #2a1518;
+            border-color: #71303a;
             color: #fca5a5;
         }
 
-        .status.info {
-            display: block;
-            background: rgba(6, 182, 212, 0.08);
-            border: 1px solid rgba(6, 182, 212, 0.25);
-            color: #67e8f9;
-        }
-
-        .vault-state {
-            padding: 14px;
-            border-radius: 10px;
-            background: rgba(6, 182, 212, 0.05);
-            border: 1px solid #263653;
-            margin-bottom: 20px;
-        }
-
-        .state-row {
+        .vault-access {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
             gap: 10px;
+            margin-top: 15px;
         }
 
-        .state-label {
-            color: #94a3b8;
-            font-size: 12px;
-        }
-
-        .state-value {
-            font-size: 12px;
-            font-weight: bold;
-        }
-
-        .locked {
-            color: #fbbf24;
-        }
-
-        .unlocked {
-            color: #86efac;
-        }
-
-        .group {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            color: #cbd5e1;
-            font-size: 12px;
-            font-weight: bold;
-            margin-bottom: 7px;
-        }
-
-        input[type="password"],
-        input[type="file"] {
-            width: 100%;
-            padding: 11px;
-            border-radius: 8px;
-            border: 1px solid #334155;
-            background: #020617;
-            color: #e2e8f0;
-            font-size: 12px;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #06b6d4;
-            box-shadow:
-                0 0 0 2px rgba(6, 182, 212, 0.10);
-        }
-
-        .button {
-            width: 100%;
+        .vault-access input {
+            flex: 1;
+            min-width: 0;
             padding: 12px;
-            border: 1px solid #0891b2;
             border-radius: 8px;
-            background:
-                linear-gradient(
-                    135deg,
-                    #0891b2,
-                    #7c3aed
-                );
-            color: white;
-            font-size: 13px;
-            font-weight: bold;
+            border: 1px solid #374151;
+            background: #0f172a;
+            color: #ffffff;
+            outline: none;
+        }
+
+        .vault-access input:focus {
+            border-color: #64748b;
+        }
+
+        button,
+        .small-button {
+            border: none;
+            border-radius: 8px;
+            padding: 11px 16px;
             cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
         }
 
-        .button:hover {
-            transform: translateY(-1px);
+        .primary-button {
+            background: #2563eb;
+            color: white;
         }
 
-        .button:disabled {
-            opacity: 0.55;
+        .primary-button:hover {
+            background: #1d4ed8;
+        }
+
+        .secondary-button {
+            background: #374151;
+            color: white;
+        }
+
+        .secondary-button:hover {
+            background: #4b5563;
+        }
+
+        .danger-button {
+            background: #991b1b;
+            color: white;
+        }
+
+        .danger-button:hover {
+            background: #b91c1c;
+        }
+
+        button:disabled {
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
-        }
-
-        .secondary {
-            margin-top: 10px;
-            background: #111827;
-            border-color: #334155;
         }
 
         .forgot-link {
-            display: block;
-            text-align: right;
-            margin-top: 8px;
-            color: #67e8f9;
+            display: inline-block;
+            margin-top: 12px;
+            color: #93c5fd;
             text-decoration: none;
-            font-size: 11px;
+            font-size: 14px;
         }
 
         .forgot-link:hover {
             text-decoration: underline;
         }
 
-        .files-title {
+        .upload-box {
             margin-top: 25px;
-            margin-bottom: 12px;
+            padding: 20px;
+            border: 1px dashed #475569;
+            border-radius: 10px;
+            background: #0f172a;
+        }
+
+        .upload-box input[type="file"] {
+            width: 100%;
+            margin: 12px 0;
+            color: #cbd5e1;
         }
 
         .file-list {
-            display: flex;
-            flex-direction: column;
-            gap: 9px;
+            margin-top: 25px;
         }
 
-        .file-row {
-            border: 1px solid #263653;
-            background: rgba(2, 6, 23, 0.55);
-            border-radius: 9px;
-            padding: 12px;
-        }
-
-        .file-main {
+        .file-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 12px;
+            gap: 15px;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #0f172a;
+            border: 1px solid #263244;
+            border-radius: 10px;
+        }
+
+        .file-info {
+            min-width: 0;
+            flex: 1;
         }
 
         .file-name {
-            color: #e2e8f0;
-            font-size: 12px;
+            color: #ffffff;
             font-weight: bold;
             word-break: break-word;
         }
 
         .file-meta {
-            color: #64748b;
-            font-size: 10px;
+            color: #9ca3af;
+            font-size: 13px;
             margin-top: 5px;
         }
 
         .file-actions {
             display: flex;
-            gap: 7px;
+            gap: 8px;
             flex-shrink: 0;
         }
 
         .small-button {
-            border: 1px solid #334155;
-            border-radius: 7px;
-            background: #0f172a;
-            color: #cbd5e1;
-            padding: 7px 10px;
-            cursor: pointer;
-            font-size: 10px;
+            padding: 8px 12px;
+            font-size: 13px;
         }
 
-        .small-button:hover {
-            border-color: #06b6d4;
-            color: #67e8f9;
+        .download-button {
+            background: #2563eb;
+            color: white;
+        }
+
+        .download-button:hover {
+            background: #1d4ed8;
+        }
+
+        .delete-button {
+            background: #991b1b;
+            color: white;
         }
 
         .delete-button:hover {
-            border-color: #ef4444;
-            color: #fca5a5;
-        }
-
-        .flow {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 7px;
-            margin-top: 20px;
-        }
-
-        .flow-box {
-            width: 100%;
-            max-width: 310px;
-            text-align: center;
-            padding: 13px;
-            border-radius: 9px;
-            border: 1px solid #334155;
-            background: #0b1220;
-            color: #cbd5e1;
-            font-size: 11px;
-        }
-
-        .flow-box.highlight {
-            border-color: #0891b2;
-            color: #67e8f9;
-            background: rgba(6, 182, 212, 0.06);
-        }
-
-        .arrow {
-            color: #64748b;
-            font-size: 18px;
-        }
-
-        .definition {
-            margin-top: 25px;
-        }
-
-        .definition-item {
-            padding: 11px 0;
-            border-bottom: 1px solid #1e293b;
-        }
-
-        .definition-item:last-child {
-            border-bottom: none;
-        }
-
-        .definition-item strong {
-            color: #67e8f9;
-            font-size: 12px;
-        }
-
-        .definition-item p {
-            color: #94a3b8;
-            font-size: 11px;
-            line-height: 1.6;
-            margin-top: 4px;
-        }
-
-        .security {
-            margin-top: 18px;
-            padding: 13px;
-            border-radius: 9px;
-            background: rgba(6, 182, 212, 0.05);
-            border: 1px solid #263653;
-            color: #94a3b8;
-            font-size: 10px;
-            line-height: 1.7;
+            background: #b91c1c;
         }
 
         .empty {
+            padding: 20px;
             text-align: center;
-            padding: 25px 10px;
+            color: #9ca3af;
+            background: #0f172a;
+            border-radius: 10px;
+            border: 1px solid #263244;
+        }
+
+        .flow {
+            margin: 20px 0;
+        }
+
+        .flow-step {
+            background: #0f172a;
+            border: 1px solid #334155;
+            padding: 13px;
+            border-radius: 9px;
+            text-align: center;
+            color: #e2e8f0;
+            margin-bottom: 8px;
+        }
+
+        .flow-arrow {
+            text-align: center;
             color: #64748b;
-            font-size: 12px;
+            margin: 3px 0;
+        }
+
+        .definition {
+            margin-bottom: 18px;
+        }
+
+        .definition strong {
+            display: block;
+            color: #ffffff;
+            margin-bottom: 5px;
+        }
+
+        .definition p {
+            margin: 0;
+            color: #9ca3af;
+            line-height: 1.55;
+            font-size: 14px;
+        }
+
+        .footer-note {
+            margin-top: 20px;
+            padding: 13px;
+            border-radius: 8px;
+            background: #172033;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.5;
         }
 
         @media (max-width: 900px) {
-
-            .layout {
+            .main-grid {
                 grid-template-columns: 1fr;
             }
+        }
 
-            .header {
+        @media (max-width: 650px) {
+            .topbar {
+                flex-direction: column;
                 align-items: flex-start;
+                gap: 15px;
+            }
+
+            .vault-access {
                 flex-direction: column;
             }
 
-            .file-main {
+            .file-item {
                 flex-direction: column;
                 align-items: flex-start;
             }
@@ -397,11 +334,15 @@
                 width: 100%;
             }
 
-            .small-button {
+            .file-actions button,
+            .file-actions form {
                 flex: 1;
             }
-        }
 
+            .file-actions .small-button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
@@ -409,244 +350,183 @@
 
 <div class="container">
 
-    <div class="header">
-
-        <div class="title-area">
-
-            <h1>🔐 Pro Vault</h1>
-
-            <p>
-                Secure encrypted file storage with password recovery
-            </p>
-
-        </div>
+    <div class="topbar">
+        <h1>🔐 Pro Vault</h1>
 
         <a
             href="{{ url_for('dashboard') }}"
-            class="back"
+            class="back-button"
         >
-            ← Back to Dashboard
+            ← Dashboard
         </a>
-
     </div>
 
 
-    <div class="layout">
+    <div class="main-grid">
 
-
-        <!-- =================================================
+        <!-- =====================================================
              LEFT SIDE
-             ================================================= -->
+             ===================================================== -->
 
         <div class="card">
 
             <h2>Vault Access</h2>
 
-            <p class="sub">
-                Unlock your Pro Vault before uploading or
-                downloading protected files.
+            <p class="muted">
+                Unlock your Pro Vault to securely upload and
+                download your encrypted files.
             </p>
 
 
+            {% if error %}
+
+            <div class="status error">
+                {{ error }}
+            </div>
+
+            {% endif %}
+
+
             <div
-                id="status"
+                id="statusBox"
                 class="status"
-            ></div>
-
-
-            <div class="vault-state">
-
-                <div class="state-row">
-
-                    <span class="state-label">
-                        Vault Status
-                    </span>
-
-                    {% if vault_unlocked %}
-
-                        <span
-                            class="state-value unlocked"
-                            id="vaultStatus"
-                        >
-                            ● Unlocked
-                        </span>
-
-                    {% else %}
-
-                        <span
-                            class="state-value locked"
-                            id="vaultStatus"
-                        >
-                            ● Locked
-                        </span>
-
-                    {% endif %}
-
-                </div>
-
+            >
+                {% if vault_unlocked %}
+                    Pro Vault is unlocked.
+                {% elif vault_password_set %}
+                    Pro Vault is locked. Enter your vault password.
+                {% else %}
+                    Create your Pro Vault password to get started.
+                {% endif %}
             </div>
 
 
-            <!-- UNLOCK -->
-
-            <div class="group">
-
-                <label for="vault_password">
-                    Pro Vault Password
-                </label>
+            <div class="vault-access">
 
                 <input
                     type="password"
-                    id="vault_password"
-                    placeholder="Enter your Pro Vault password"
+                    id="vaultPassword"
+                    placeholder="Enter Pro Vault password"
                     autocomplete="current-password"
                 >
 
-                <a
-                    href="{{ url_for('pro_vault_forgot') }}"
-                    class="forgot-link"
+                <button
+                    type="button"
+                    class="primary-button"
+                    id="unlockButton"
+                    onclick="unlockVault()"
                 >
-                    Forgot Pro Vault Password?
-                </a>
+                    🔓 Unlock
+                </button>
 
             </div>
 
 
-            <button
-                class="button"
-                id="unlockButton"
-                onclick="unlockVault()"
+            <a
+                href="{{ url_for('pro_vault_forgot') }}"
+                class="forgot-link"
             >
-                🔓 Unlock Pro Vault
-            </button>
+                Forgot Pro Vault password?
+            </a>
 
 
-            <!-- UPLOAD -->
+            <!-- =================================================
+                 UPLOAD
+                 ================================================= -->
 
-            <div
-                class="group"
-                style="margin-top: 25px;"
-            >
+            <div class="upload-box">
 
-                <label for="fileInput">
-                    Upload File
-                </label>
+                <h3>Upload File</h3>
+
+                <p class="muted">
+                    Maximum file size: 5 MB
+                </p>
 
                 <input
                     type="file"
                     id="fileInput"
                 >
 
-            </div>
-
-
-            <button
-                class="button"
-                id="uploadButton"
-                onclick="uploadFile()"
-                {% if not vault_unlocked %}
-                disabled
-                {% endif %}
-            >
-                🔒 Encrypt & Upload
-            </button>
-
-
-            <div class="security">
-
-                🛡️ Files are encrypted before storage.
-                The server stores encrypted file data,
-                while the original filename and file size
-                are retained for file management.
+                <button
+                    type="button"
+                    class="primary-button"
+                    id="uploadButton"
+                    onclick="uploadFile()"
+                    {% if not vault_unlocked %}
+                    disabled
+                    {% endif %}
+                >
+                    🔒 Encrypt & Upload
+                </button>
 
             </div>
 
 
-            <!-- FILES -->
-
-            <h2 class="files-title">
-                Your Protected Files
-            </h2>
-
+            <!-- =================================================
+                 FILE LIST
+                 ================================================= -->
 
             <div class="file-list">
+
+                <h3>Your Protected Files</h3>
 
                 {% if files %}
 
                     {% for file in files %}
 
-                        <div class="file-row">
+                    <div class="file-item">
 
-                            <div class="file-main">
+                        <div class="file-info">
 
-                                <div>
+                            <div class="file-name">
+                                {{ file[1] }}
+                            </div>
 
-                                    <div class="file-name">
-                                        📄 {{ file[1] }}
-                                    </div>
-
-                                    <div class="file-meta">
-
-                                        {% if file[2] >= 1048576 %}
-
-                                            {{ "%.2f"|format(file[2] / 1048576) }} MB
-
-                                        {% elif file[2] >= 1024 %}
-
-                                            {{ "%.2f"|format(file[2] / 1024) }} KB
-
-                                        {% else %}
-
-                                            {{ file[2] }} bytes
-
-                                        {% endif %}
-
-                                        •
-                                        {{ file[3]|ist }}
-
-                                    </div>
-
-                                </div>
-
-
-                                <div class="file-actions">
-
-                                    <button
-                                        type="button"
-                                        class="small-button"
-                                        onclick="downloadFile({{ file[0] }}, {{ file[1]|tojson }})"
-                                    >
-                                        ⬇ Download
-                                    </button>
-
-
-                                    <form
-                                        method="POST"
-                                        action="{{ url_for('pro_vault_delete', file_id=file[0]) }}"
-                                        onsubmit="return confirm('Delete this file permanently?');"
-                                    >
-
-                                        <button
-                                            type="submit"
-                                            class="small-button delete-button"
-                                        >
-                                            🗑 Delete
-                                        </button>
-
-                                    </form>
-
-                                </div>
-
+                            <div class="file-meta">
+                                {{ "%.2f"|format(file[2] / 1024 / 1024) }} MB
+                                •
+                                {{ file[3]|ist }}
                             </div>
 
                         </div>
+
+
+                        <div class="file-actions">
+
+                            <button
+                                type="button"
+                                class="small-button download-button"
+                                onclick="downloadFile({{ file[0] }}, {{ file[1]|tojson }})"
+                            >
+                                ⬇ Download
+                            </button>
+
+
+                            <form
+                                method="POST"
+                                action="{{ url_for('pro_vault_delete', file_id=file[0]) }}"
+                                onsubmit="return confirm('Delete this file permanently?');"
+                            >
+
+                                <button
+                                    type="submit"
+                                    class="small-button delete-button"
+                                >
+                                    🗑 Delete
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                    </div>
 
                     {% endfor %}
 
                 {% else %}
 
                     <div class="empty">
-                        No files have been uploaded to Pro Vault yet.
+                        No files have been uploaded to the Pro Vault yet.
                     </div>
 
                 {% endif %}
@@ -656,169 +536,172 @@
         </div>
 
 
-        <!-- =================================================
+        <!-- =====================================================
              RIGHT SIDE
-             ================================================= -->
+             ===================================================== -->
 
         <div class="card">
 
             <h2>How Pro Vault Works</h2>
 
-            <p class="sub">
-                A single encryption system is used for all
-                Pro Vault files.
+            <p class="muted">
+                Pro Vault uses a user-specific vault key and
+                browser-side AES-256-GCM encryption to protect
+                uploaded files.
             </p>
 
 
+            <!-- =================================================
+                 FLOWCHART
+                 ================================================= -->
+
             <div class="flow">
 
-                <div class="flow-box">
+                <div class="flow-step">
                     👤 User
                 </div>
 
-                <div class="arrow">
+                <div class="flow-arrow">
                     ↓
                 </div>
 
-                <div class="flow-box">
+                <div class="flow-step">
                     🔑 Pro Vault Password
                 </div>
 
-                <div class="arrow">
+                <div class="flow-arrow">
                     ↓
                 </div>
 
-                <div class="flow-box highlight">
-                    🛡️ Protected Vault Key
+                <div class="flow-step">
+                    🛡 Protected Vault Key
                 </div>
 
-                <div class="arrow">
+                <div class="flow-arrow">
                     ↓
                 </div>
 
-                <div class="flow-box">
+                <div class="flow-step">
                     🔐 AES-256-GCM Encryption
                 </div>
 
-                <div class="arrow">
+                <div class="flow-arrow">
                     ↓
                 </div>
 
-                <div class="flow-box">
+                <div class="flow-step">
                     💾 Encrypted File Storage
                 </div>
 
             </div>
 
 
+            <!-- =================================================
+                 DEFINITIONS
+                 ================================================= -->
+
+            <h2>Definitions</h2>
+
+
             <div class="definition">
 
-                <h2>
-                    Definitions
-                </h2>
+                <strong>
+                    Pro Vault Password
+                </strong>
 
-
-                <div class="definition-item">
-
-                    <strong>
-                        Pro Vault Password
-                    </strong>
-
-                    <p>
-                        The password used to unlock the
-                        user's Pro Vault.
-                    </p>
-
-                </div>
-
-
-                <div class="definition-item">
-
-                    <strong>
-                        Vault Key
-                    </strong>
-
-                    <p>
-                        A randomly generated 256-bit key
-                        used for Pro Vault file encryption.
-                    </p>
-
-                </div>
-
-
-                <div class="definition-item">
-
-                    <strong>
-                        AES-256-GCM
-                    </strong>
-
-                    <p>
-                        An authenticated encryption method
-                        used to protect the file contents.
-                    </p>
-
-                </div>
-
-
-                <div class="definition-item">
-
-                    <strong>
-                        Encrypted Storage
-                    </strong>
-
-                    <p>
-                        Files are stored in PostgreSQL as
-                        encrypted binary data rather than
-                        their original contents.
-                    </p>
-
-                </div>
-
-
-                <div class="definition-item">
-
-                    <strong>
-                        OTP Recovery
-                    </strong>
-
-                    <p>
-                        A six-digit one-time password sent
-                        to the registered email address for
-                        Pro Vault password recovery.
-                    </p>
-
-                </div>
-
-
-                <div class="definition-item">
-
-                    <strong>
-                        Password Change
-                    </strong>
-
-                    <p>
-                        Changing the Pro Vault password
-                        updates the password hash while
-                        preserving the same Vault Key.
-                        Existing encrypted files therefore
-                        remain accessible.
-                    </p>
-
-                </div>
+                <p>
+                    A separate password used to unlock the
+                    Pro Vault. It is stored as a password hash
+                    and can be changed or recovered through OTP.
+                </p>
 
             </div>
 
 
-            <div class="security">
+            <div class="definition">
 
-                🔐 <strong>Security model:</strong><br>
+                <strong>
+                    Vault Key
+                </strong>
 
-                The Pro Vault password is stored only as
-                a password hash. The Vault Key is protected
-                separately using the server's recovery key.
-                Existing encrypted files are not re-encrypted
-                when the password changes.
+                <p>
+                    A randomly generated 32-byte key associated
+                    with the user. The same vault key remains in
+                    use when the Pro Vault password is changed.
+                </p>
 
+            </div>
+
+
+            <div class="definition">
+
+                <strong>
+                    AES-256-GCM
+                </strong>
+
+                <p>
+                    An authenticated encryption algorithm used
+                    by the browser to encrypt and decrypt file
+                    contents using the protected vault key.
+                </p>
+
+            </div>
+
+
+            <div class="definition">
+
+                <strong>
+                    Encrypted Storage
+                </strong>
+
+                <p>
+                    Uploaded files are stored in the database
+                    only as encrypted binary data. The original
+                    file contents are decrypted in the browser
+                    when the user downloads the file.
+                </p>
+
+            </div>
+
+
+            <div class="definition">
+
+                <strong>
+                    OTP Recovery
+                </strong>
+
+                <p>
+                    If the Pro Vault password is forgotten, the
+                    registered email address can be verified
+                    using a one-time password before setting a
+                    new vault password.
+                </p>
+
+            </div>
+
+
+            <div class="definition">
+
+                <strong>
+                    Password Change
+                </strong>
+
+                <p>
+                    Changing or resetting the Pro Vault password
+                    updates the password hash while preserving
+                    the existing vault key. Previously uploaded
+                    files therefore remain accessible.
+                </p>
+
+            </div>
+
+
+            <div class="footer-note">
+                The Pro Vault password is used for vault
+                authentication. The vault key is separately
+                protected by the server-side recovery mechanism.
+                Files are encrypted using AES-256-GCM before
+                storage.
             </div>
 
         </div>
@@ -830,390 +713,462 @@
 
 <script>
 
-let vaultKey = null;
+    // =========================================================
+    // VAULT KEY
+    // =========================================================
+
+    let vaultKey = null;
 
 
-/* =========================================================
-   STATUS
-   ========================================================= */
+    // =========================================================
+    // STATUS MESSAGE
+    // =========================================================
 
-function showStatus(
-    message,
-    type
-) {
+    function showStatus(message, error = false) {
 
-    const status =
-        document.getElementById(
-            "status"
+        const box = document.getElementById("statusBox");
+
+        box.textContent = message;
+
+        box.classList.remove(
+            "success",
+            "error"
         );
 
-    status.textContent =
-        message;
+        if (error) {
 
-    status.className =
-        "status " + type;
-}
+            box.classList.add("error");
 
+        } else {
 
-/* =========================================================
-   HEX TO BYTES
-   ========================================================= */
+            box.classList.add("success");
 
-function hexToBytes(
-    hex
-) {
-
-    if (
-        !hex ||
-        hex.length % 2 !== 0
-    ) {
-
-        throw new Error(
-            "Invalid vault key."
-        );
+        }
     }
 
-    const bytes =
-        new Uint8Array(
+
+    // =========================================================
+    // HEX TO BYTES
+    // =========================================================
+
+    function hexToBytes(hex) {
+
+        if (
+            typeof hex !== "string" ||
+            hex.length % 2 !== 0
+        ) {
+            throw new Error("Invalid vault key.");
+        }
+
+        const bytes = new Uint8Array(
             hex.length / 2
         );
 
-    for (
-        let i = 0;
-        i < hex.length;
-        i += 2
-    ) {
+        for (
+            let i = 0;
+            i < hex.length;
+            i += 2
+        ) {
 
-        const value =
-            parseInt(
-                hex.substring(
-                    i,
-                    i + 2
-                ),
+            bytes[i / 2] = parseInt(
+                hex.substring(i, i + 2),
                 16
             );
 
-        if (
-            Number.isNaN(value)
-        ) {
+        }
+
+        return bytes;
+    }
+
+
+    // =========================================================
+    // RESTORE VAULT KEY AFTER PAGE RELOAD
+    // =========================================================
+
+    async function restoreVaultKey() {
+
+        try {
+
+            const response = await fetch(
+                "{{ url_for('pro_vault_key') }}",
+                {
+                    method: "GET",
+                    cache: "no-store",
+                    credentials: "same-origin"
+                }
+            );
+
+
+            if (!response.ok) {
+
+                return false;
+
+            }
+
+
+            const data = await response.json();
+
+
+            if (!data.vault_key) {
+
+                return false;
+
+            }
+
+
+            const key = hexToBytes(
+                data.vault_key
+            );
+
+
+            if (key.length !== 32) {
+
+                console.error(
+                    "Invalid vault key length:",
+                    key.length
+                );
+
+                return false;
+
+            }
+
+
+            vaultKey = key;
+
+            return true;
+
+        } catch (error) {
+
+            console.error(
+                "Vault key restore error:",
+                error
+            );
+
+            return false;
+
+        }
+
+    }
+
+
+    // =========================================================
+    // GET CRYPTO KEY
+    // =========================================================
+
+    async function getCryptoKey() {
+
+        if (!vaultKey) {
+
+            throw new Error(
+                "Pro Vault is locked."
+            );
+
+        }
+
+        if (vaultKey.length !== 32) {
 
             throw new Error(
                 "Invalid vault key."
             );
+
         }
 
-        bytes[i / 2] =
-            value;
+        return await crypto.subtle.importKey(
+            "raw",
+            vaultKey,
+            {
+                name: "AES-GCM"
+            },
+            false,
+            [
+                "encrypt",
+                "decrypt"
+            ]
+        );
+
     }
 
-    return bytes;
-}
 
+    // =========================================================
+    // UNLOCK VAULT
+    // =========================================================
 
-/* =========================================================
-   CRYPTO KEY
-   ========================================================= */
+    async function unlockVault() {
 
-async function getCryptoKey() {
-
-    if (!vaultKey) {
-
-        throw new Error(
-            "Pro Vault is locked."
-        );
-    }
-
-    if (
-        vaultKey.length !== 32
-    ) {
-
-        throw new Error(
-            "Invalid 256-bit vault key."
-        );
-    }
-
-    return await crypto.subtle.importKey(
-        "raw",
-        vaultKey,
-        {
-            name: "AES-GCM"
-        },
-        false,
-        [
-            "encrypt",
-            "decrypt"
-        ]
-    );
-}
-
-
-/* =========================================================
-   UNLOCK VAULT
-   ========================================================= */
-
-async function unlockVault() {
-
-    const password =
-        document.getElementById(
-            "vault_password"
-        ).value;
-
-    if (!password) {
-
-        showStatus(
-            "Enter your Pro Vault password.",
-            "error"
-        );
-
-        return;
-    }
-
-    if (
-        password.length < 8
-    ) {
-
-        showStatus(
-            "Vault password must contain at least 8 characters.",
-            "error"
-        );
-
-        return;
-    }
-
-    const button =
-        document.getElementById(
-            "unlockButton"
-        );
-
-    button.disabled = true;
-
-    button.textContent =
-        "⏳ Unlocking...";
-
-    try {
-
-        const formData =
-            new FormData();
-
-        formData.append(
-            "vault_password",
-            password
-        );
-
-        const response =
-            await fetch(
-                "{{ url_for('pro_vault_unlock') }}",
-                {
-                    method: "POST",
-                    body: formData,
-                    cache: "no-store"
-                }
+        const passwordInput =
+            document.getElementById(
+                "vaultPassword"
             );
 
-        let data;
+        const unlockButton =
+            document.getElementById(
+                "unlockButton"
+            );
+
+        const password =
+            passwordInput.value;
+
+
+        if (!password) {
+
+            showStatus(
+                "Enter your Pro Vault password.",
+                true
+            );
+
+            return;
+
+        }
+
+
+        unlockButton.disabled = true;
+
+        showStatus(
+            "Unlocking Pro Vault..."
+        );
+
 
         try {
 
-            data =
-                await response.json();
+            const formData =
+                new FormData();
+
+            formData.append(
+                "vault_password",
+                password
+            );
+
+
+            const response =
+                await fetch(
+                    "{{ url_for('pro_vault_unlock') }}",
+                    {
+                        method: "POST",
+                        body: formData,
+                        credentials: "same-origin",
+                        cache: "no-store"
+                    }
+                );
+
+
+            let data = {};
+
+            try {
+
+                data = await response.json();
+
+            } catch (e) {
+
+                throw new Error(
+                    "Invalid server response."
+                );
+
+            }
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.message ||
+                    "Unable to unlock Pro Vault."
+                );
+
+            }
+
+
+            if (!data.vault_key) {
+
+                throw new Error(
+                    "Vault key was not returned."
+                );
+
+            }
+
+
+            const key =
+                hexToBytes(
+                    data.vault_key
+                );
+
+
+            if (key.length !== 32) {
+
+                throw new Error(
+                    "Invalid vault key received."
+                );
+
+            }
+
+
+            vaultKey = key;
+
+
+            showStatus(
+                data.message ||
+                "Pro Vault unlocked successfully."
+            );
+
+
+            document.getElementById(
+                "uploadButton"
+            ).disabled = false;
+
+
+            passwordInput.value = "";
+
 
         } catch (error) {
 
-            throw new Error(
-                "Server returned an invalid response."
+            vaultKey = null;
+
+            showStatus(
+                error.message ||
+                "Unable to unlock Pro Vault.",
+                true
             );
+
+        } finally {
+
+            unlockButton.disabled = false;
+
         }
 
-        if (!response.ok) {
+    }
+
+
+    // =========================================================
+    // ENCRYPT FILE
+    // =========================================================
+
+    async function encryptFile(file) {
+
+        const data =
+            await file.arrayBuffer();
+
+
+        const iv =
+            crypto.getRandomValues(
+                new Uint8Array(12)
+            );
+
+
+        const key =
+            await getCryptoKey();
+
+
+        const encrypted =
+            await crypto.subtle.encrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv
+                },
+                key,
+                data
+            );
+
+
+        const encryptedBytes =
+            new Uint8Array(
+                encrypted
+            );
+
+
+        const result =
+            new Uint8Array(
+                iv.length +
+                encryptedBytes.length
+            );
+
+
+        result.set(
+            iv,
+            0
+        );
+
+
+        result.set(
+            encryptedBytes,
+            iv.length
+        );
+
+
+        return new Blob(
+            [result],
+            {
+                type: "application/octet-stream"
+            }
+        );
+
+    }
+
+
+    // =========================================================
+    // DECRYPT FILE
+    // =========================================================
+
+    async function decryptFile(
+        encryptedBuffer
+    ) {
+
+        if (!vaultKey) {
 
             throw new Error(
-                data.message ||
-                "Unable to unlock Pro Vault."
+                "Pro Vault is locked."
             );
+
         }
 
-        if (!data.vault_key) {
-
-            throw new Error(
-                "Vault key was not returned."
-            );
-        }
-
-        const newKey =
-            hexToBytes(
-                data.vault_key
-            );
 
         if (
-            newKey.length !== 32
+            !encryptedBuffer ||
+            encryptedBuffer.byteLength < 28
         ) {
 
             throw new Error(
-                "Invalid vault key received."
+                "Encrypted file is invalid or corrupted."
             );
+
         }
 
-        vaultKey =
-            newKey;
 
-        document.getElementById(
-            "vaultStatus"
-        ).textContent =
-            "● Unlocked";
-
-        document.getElementById(
-            "vaultStatus"
-        ).className =
-            "state-value unlocked";
-
-        document.getElementById(
-            "uploadButton"
-        ).disabled = false;
-
-        showStatus(
-            "Pro Vault unlocked successfully.",
-            "success"
-        );
-
-        document.getElementById(
-            "vault_password"
-        ).value = "";
-
-    } catch (error) {
-
-        vaultKey = null;
-
-        showStatus(
-            error.message ||
-            "Unable to unlock Pro Vault.",
-            "error"
-        );
-
-    } finally {
-
-        button.disabled = false;
-
-        button.textContent =
-            "🔓 Unlock Pro Vault";
-    }
-}
+        const encryptedBytes =
+            new Uint8Array(
+                encryptedBuffer
+            );
 
 
-/* =========================================================
-   ENCRYPT FILE
-   FORMAT:
-   12-BYTE IV + AES-GCM CIPHERTEXT
-   ========================================================= */
-
-async function encryptFile(
-    file
-) {
-
-    const key =
-        await getCryptoKey();
-
-    const data =
-        new Uint8Array(
-            await file.arrayBuffer()
-        );
-
-    const iv =
-        crypto.getRandomValues(
-            new Uint8Array(12)
-        );
-
-    const encryptedBuffer =
-        await crypto.subtle.encrypt(
-            {
-                name: "AES-GCM",
-                iv: iv
-            },
-            key,
-            data
-        );
-
-    const encrypted =
-        new Uint8Array(
-            encryptedBuffer
-        );
-
-    const result =
-        new Uint8Array(
-            12 +
-            encrypted.length
-        );
-
-    result.set(
-        iv,
-        0
-    );
-
-    result.set(
-        encrypted,
-        12
-    );
-
-    return new Blob(
-        [result],
-        {
-            type: "application/octet-stream"
-        }
-    );
-}
+        // First 12 bytes are the AES-GCM IV.
+        const iv =
+            encryptedBytes.slice(
+                0,
+                12
+            );
 
 
-/* =========================================================
-   DECRYPT FILE
-   EXPECTS:
-   12-BYTE IV + AES-GCM CIPHERTEXT
-   ========================================================= */
+        // Remaining bytes contain ciphertext + GCM tag.
+        const ciphertext =
+            encryptedBytes.slice(
+                12
+            );
 
-async function decryptFile(
-    encryptedData
-) {
 
-    const key =
-        await getCryptoKey();
+        const key =
+            await crypto.subtle.importKey(
+                "raw",
+                vaultKey,
+                {
+                    name: "AES-GCM"
+                },
+                false,
+                [
+                    "decrypt"
+                ]
+            );
 
-    const data =
-        new Uint8Array(
-            encryptedData
-        );
 
-    /*
-        AES-GCM uses:
+        try {
 
-        12 bytes IV
-        +
-        ciphertext
-        +
-        16 bytes authentication tag
-    */
-
-    if (
-        data.length < 28
-    ) {
-
-        throw new Error(
-            "Encrypted file is invalid or corrupted."
-        );
-    }
-
-    const iv =
-        data.slice(
-            0,
-            12
-        );
-
-    const ciphertext =
-        data.slice(
-            12
-        );
-
-    try {
-
-        const decrypted =
-            await crypto.subtle.decrypt(
+            return await crypto.subtle.decrypt(
                 {
                     name: "AES-GCM",
                     iv: iv
@@ -1222,543 +1177,606 @@ async function decryptFile(
                 ciphertext
             );
 
-        return new Uint8Array(
-            decrypted
-        );
-
-    } catch (error) {
-
-        throw new Error(
-            "Unable to decrypt this file. " +
-            "The file may have been created with a different vault key."
-        );
-    }
-}
-
-
-/* =========================================================
-   UPLOAD FILE
-   ========================================================= */
-
-async function uploadFile() {
-
-    if (!vaultKey) {
-
-        showStatus(
-            "Unlock the Pro Vault first.",
-            "error"
-        );
-
-        return;
-    }
-
-    const input =
-        document.getElementById(
-            "fileInput"
-        );
-
-    const file =
-        input.files[0];
-
-    if (!file) {
-
-        showStatus(
-            "Please select a file.",
-            "error"
-        );
-
-        return;
-    }
-
-    if (
-        file.size <= 0
-    ) {
-
-        showStatus(
-            "The selected file is empty.",
-            "error"
-        );
-
-        return;
-    }
-
-    if (
-        file.size >
-        5 * 1024 * 1024
-    ) {
-
-        showStatus(
-            "File size must be 5 MB or less.",
-            "error"
-        );
-
-        return;
-    }
-
-    const button =
-        document.getElementById(
-            "uploadButton"
-        );
-
-    button.disabled = true;
-
-    button.textContent =
-        "⏳ Encrypting...";
-
-    try {
-
-        const encryptedBlob =
-            await encryptFile(
-                file
-            );
-
-        const formData =
-            new FormData();
-
-        formData.append(
-            "file",
-            encryptedBlob,
-            file.name + ".vault"
-        );
-
-        formData.append(
-            "original_name",
-            file.name
-        );
-
-        formData.append(
-            "original_size",
-            file.size.toString()
-        );
-
-        const response =
-            await fetch(
-                "{{ url_for('pro_vault_upload') }}",
-                {
-                    method: "POST",
-                    body: formData
-                }
-            );
-
-        let data;
-
-        try {
-
-            data =
-                await response.json();
-
         } catch (error) {
 
             throw new Error(
-                "Server returned an invalid response."
+                "Unable to decrypt the file. " +
+                "The vault key may be incorrect or " +
+                "the stored file may use an older format."
             );
+
         }
 
-        if (!response.ok) {
-
-            throw new Error(
-                data.message ||
-                "Upload failed."
-            );
-        }
-
-        showStatus(
-            "File encrypted and uploaded successfully.",
-            "success"
-        );
-
-        input.value = "";
-
-        setTimeout(
-            function() {
-
-                window.location.reload();
-
-            },
-            900
-        );
-
-    } catch (error) {
-
-        showStatus(
-            error.message ||
-            "Upload failed.",
-            "error"
-        );
-
-        button.disabled = false;
-
-        button.textContent =
-            "🔒 Encrypt & Upload";
-    }
-}
-
-
-/* =========================================================
-   MIME TYPE
-   ========================================================= */
-
-function getMimeType(
-    filename
-) {
-
-    const extension =
-        filename
-            .split(".")
-            .pop()
-            .toLowerCase();
-
-    const types = {
-
-        pdf:
-            "application/pdf",
-
-        txt:
-            "text/plain",
-
-        csv:
-            "text/csv",
-
-        json:
-            "application/json",
-
-        xml:
-            "application/xml",
-
-        html:
-            "text/html",
-
-        htm:
-            "text/html",
-
-        css:
-            "text/css",
-
-        js:
-            "text/javascript",
-
-        jpg:
-            "image/jpeg",
-
-        jpeg:
-            "image/jpeg",
-
-        png:
-            "image/png",
-
-        gif:
-            "image/gif",
-
-        webp:
-            "image/webp",
-
-        svg:
-            "image/svg+xml",
-
-        ico:
-            "image/x-icon",
-
-        mp3:
-            "audio/mpeg",
-
-        wav:
-            "audio/wav",
-
-        ogg:
-            "audio/ogg",
-
-        mp4:
-            "video/mp4",
-
-        webm:
-            "video/webm",
-
-        avi:
-            "video/x-msvideo",
-
-        zip:
-            "application/zip",
-
-        rar:
-            "application/vnd.rar",
-
-        "7z":
-            "application/x-7z-compressed",
-
-        doc:
-            "application/msword",
-
-        docx:
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-
-        xls:
-            "application/vnd.ms-excel",
-
-        xlsx:
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-
-        ppt:
-            "application/vnd.ms-powerpoint",
-
-        pptx:
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    };
-
-    return (
-        types[extension] ||
-        "application/octet-stream"
-    );
-}
-
-
-/* =========================================================
-   DOWNLOAD BYTES
-   ========================================================= */
-
-function downloadBytes(
-    bytes,
-    filename
-) {
-
-    if (
-        !bytes ||
-        bytes.length === 0
-    ) {
-
-        throw new Error(
-            "The decrypted file is empty."
-        );
     }
 
-    const blob =
-        new Blob(
-            [bytes],
-            {
-                type:
-                    getMimeType(
-                        filename
-                    )
-            }
-        );
 
-    const url =
-        URL.createObjectURL(
-            blob
-        );
+    // =========================================================
+    // UPLOAD FILE
+    // =========================================================
 
-    const link =
-        document.createElement(
-            "a"
-        );
+    async function uploadFile() {
 
-    link.style.display =
-        "none";
+        if (!vaultKey) {
 
-    link.href =
-        url;
+            const restored =
+                await restoreVaultKey();
 
-    link.download =
-        filename;
+            if (!restored) {
 
-    document.body.appendChild(
-        link
-    );
+                showStatus(
+                    "Unlock the Pro Vault before uploading.",
+                    true
+                );
 
-    link.click();
+                return;
 
-    document.body.removeChild(
-        link
-    );
-
-    setTimeout(
-        function() {
-
-            URL.revokeObjectURL(
-                url
-            );
-
-        },
-        1000
-    );
-}
-
-
-/* =========================================================
-   DOWNLOAD PRO VAULT FILE
-   ========================================================= */
-
-async function downloadFile(
-    fileId,
-    filename
-) {
-
-    if (!vaultKey) {
-
-        showStatus(
-            "Unlock the Pro Vault before downloading files.",
-            "error"
-        );
-
-        return;
-    }
-
-    showStatus(
-        "Downloading and decrypting file...",
-        "info"
-    );
-
-    try {
-
-        const response =
-            await fetch(
-                `/pro-vault-download/${fileId}`,
-                {
-                    method: "GET",
-                    cache: "no-store",
-                    credentials: "same-origin"
-                }
-            );
-
-        if (!response.ok) {
-
-            let message =
-                "Download failed.";
-
-            try {
-
-                const data =
-                    await response.json();
-
-                if (data.message) {
-
-                    message =
-                        data.message;
-                }
-
-            } catch (_) {}
-
-            if (
-                response.status === 403
-            ) {
-
-                vaultKey = null;
-
-                document.getElementById(
-                    "uploadButton"
-                ).disabled = true;
-
-                document.getElementById(
-                    "vaultStatus"
-                ).textContent =
-                    "● Locked";
-
-                document.getElementById(
-                    "vaultStatus"
-                ).className =
-                    "state-value locked";
             }
 
-            throw new Error(
-                message
-            );
         }
 
 
-        const encryptedData =
-            await response.arrayBuffer();
+        const input =
+            document.getElementById(
+                "fileInput"
+            );
 
 
         if (
-            encryptedData.byteLength < 28
+            !input.files ||
+            input.files.length === 0
         ) {
 
-            throw new Error(
-                "The downloaded encrypted data is invalid."
+            showStatus(
+                "Please select a file.",
+                true
             );
+
+            return;
+
         }
 
 
-        const decrypted =
-            await decryptFile(
-                encryptedData
+        const file =
+            input.files[0];
+
+
+        if (
+            file.size >
+            5 * 1024 * 1024
+        ) {
+
+            showStatus(
+                "File size must be 5 MB or less.",
+                true
             );
 
+            return;
+
+        }
+
+
+        if (file.size <= 0) {
+
+            showStatus(
+                "The selected file is empty.",
+                true
+            );
+
+            return;
+
+        }
+
+
+        const uploadButton =
+            document.getElementById(
+                "uploadButton"
+            );
+
+
+        uploadButton.disabled = true;
+
+
+        showStatus(
+            "Encrypting file..."
+        );
+
+
+        try {
+
+            const encryptedBlob =
+                await encryptFile(
+                    file
+                );
+
+
+            const formData =
+                new FormData();
+
+
+            formData.append(
+                "file",
+                encryptedBlob,
+                file.name + ".vault"
+            );
+
+
+            formData.append(
+                "original_name",
+                file.name
+            );
+
+
+            formData.append(
+                "original_size",
+                file.size.toString()
+            );
+
+
+            showStatus(
+                "Uploading encrypted file..."
+            );
+
+
+            const response =
+                await fetch(
+                    "{{ url_for('pro_vault_upload') }}",
+                    {
+                        method: "POST",
+                        body: formData,
+                        credentials: "same-origin",
+                        cache: "no-store"
+                    }
+                );
+
+
+            let data = {};
+
+            try {
+
+                data = await response.json();
+
+            } catch (e) {
+
+                throw new Error(
+                    "Invalid server response."
+                );
+
+            }
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.message ||
+                    "Unable to upload encrypted file."
+                );
+
+            }
+
+
+            showStatus(
+                data.message ||
+                "Encrypted file uploaded successfully."
+            );
+
+
+            input.value = "";
+
+
+            /*
+             * Reload the page so the newly uploaded file
+             * appears in the file list.
+             *
+             * The Flask session remains unlocked.
+             * restoreVaultKey() will retrieve the same
+             * vault key after the reload.
+             */
+            setTimeout(
+                () => {
+                    location.reload();
+                },
+                700
+            );
+
+
+        } catch (error) {
+
+            showStatus(
+                error.message ||
+                "File upload failed.",
+                true
+            );
+
+            uploadButton.disabled = false;
+
+        }
+
+    }
+
+
+    // =========================================================
+    // MIME TYPE
+    // =========================================================
+
+    function getMimeType(filename) {
+
+        const name =
+            filename.toLowerCase();
+
+
+        const extension =
+            name.includes(".")
+                ? name.substring(
+                    name.lastIndexOf(".") + 1
+                )
+                : "";
+
+
+        const types = {
+
+            txt: "text/plain",
+
+            pdf: "application/pdf",
+
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp",
+
+            csv: "text/csv",
+
+            json: "application/json",
+
+            html: "text/html",
+
+            css: "text/css",
+
+            js: "text/javascript",
+
+            xml: "application/xml",
+
+            zip: "application/zip",
+
+            doc: "application/msword",
+
+            docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
+            xls: "application/vnd.ms-excel",
+
+            xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+            ppt: "application/vnd.ms-powerpoint",
+
+            pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+
+            mp3: "audio/mpeg",
+
+            wav: "audio/wav",
+
+            mp4: "video/mp4",
+
+            avi: "video/x-msvideo"
+
+        };
+
+
+        return (
+            types[extension] ||
+            "application/octet-stream"
+        );
+
+    }
+
+
+    // =========================================================
+    // DOWNLOAD BYTES
+    // =========================================================
+
+    function downloadBytes(
+        data,
+        filename
+    ) {
+
+        const blob =
+            new Blob(
+                [data],
+                {
+                    type: getMimeType(
+                        filename
+                    )
+                }
+            );
+
+
+        const url =
+            URL.createObjectURL(
+                blob
+            );
+
+
+        const link =
+            document.createElement(
+                "a"
+            );
+
+
+        link.href = url;
+
+        link.download =
+            filename;
+
+        link.style.display =
+            "none";
+
+
+        document.body.appendChild(
+            link
+        );
+
+
+        link.click();
+
+
+        document.body.removeChild(
+            link
+        );
+
+
+        setTimeout(
+            () => {
+                URL.revokeObjectURL(
+                    url
+                );
+            },
+            1000
+        );
+
+    }
+
+
+    // =========================================================
+    // DOWNLOAD FILE
+    // =========================================================
+
+    async function downloadFile(
+        fileId,
+        filename
+    ) {
 
         /*
-            Save the decrypted data using
-            the exact original filename.
-        */
+         * IMPORTANT:
+         * After a page reload, vaultKey is cleared from
+         * JavaScript memory even though Flask still has
+         * vault_unlocked=True in the session.
+         *
+         * Restore the same vault key before downloading.
+         */
+        if (!vaultKey) {
 
-        downloadBytes(
-            decrypted,
-            filename
-        );
+            const restored =
+                await restoreVaultKey();
+
+
+            if (!restored) {
+
+                showStatus(
+                    "Unlock the Pro Vault before downloading files.",
+                    true
+                );
+
+                return;
+
+            }
+
+        }
 
 
         showStatus(
-            `${filename} downloaded successfully.`,
-            "success"
+            "Downloading and decrypting file..."
         );
 
-    } catch (error) {
 
-        console.error(
-            "PRO VAULT DOWNLOAD ERROR:",
-            error
-        );
+        try {
 
-        showStatus(
-            "Download failed: " +
-            (
-                error.message ||
-                "Unable to decrypt file."
-            ),
-            "error"
-        );
-    }
-}
+            const response =
+                await fetch(
+                    "{{ url_for('pro_vault_download', file_id=0) }}".replace(
+                        "/0",
+                        "/" + fileId
+                    ),
+                    {
+                        method: "GET",
+                        cache: "no-store",
+                        credentials: "same-origin"
+                    }
+                );
 
 
-/* =========================================================
-   ENTER KEY TO UNLOCK
-   ========================================================= */
+            if (!response.ok) {
 
-const passwordInput =
-    document.getElementById(
-        "vault_password"
-    );
+                let message =
+                    "Unable to download the file.";
 
-if (passwordInput) {
 
-    passwordInput.addEventListener(
-        "keydown",
-        function(event) {
+                try {
+
+                    const data =
+                        await response.json();
+
+
+                    if (data.message) {
+
+                        message =
+                            data.message;
+
+                    }
+
+                } catch (e) {
+
+                    // Response was not JSON.
+                }
+
+
+                if (
+                    response.status === 403
+                ) {
+
+                    vaultKey = null;
+
+
+                    document.getElementById(
+                        "uploadButton"
+                    ).disabled = true;
+
+                }
+
+
+                throw new Error(
+                    message
+                );
+
+            }
+
+
+            const encryptedData =
+                await response.arrayBuffer();
+
 
             if (
-                event.key === "Enter"
+                encryptedData.byteLength < 28
             ) {
 
-                event.preventDefault();
+                throw new Error(
+                    "The downloaded encrypted file is invalid."
+                );
 
-                unlockVault();
             }
+
+
+            showStatus(
+                "Decrypting file..."
+            );
+
+
+            const decryptedData =
+                await decryptFile(
+                    encryptedData
+                );
+
+
+            downloadBytes(
+                decryptedData,
+                filename
+            );
+
+
+            showStatus(
+                "File downloaded successfully."
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "PRO VAULT DOWNLOAD ERROR:",
+                error
+            );
+
+
+            showStatus(
+                error.message ||
+                "Unable to download the file.",
+                true
+            );
+
         }
-    );
-}
-
-
-/* =========================================================
-   CLEAR VAULT KEY WHEN PAGE IS CLOSED
-   ========================================================= */
-
-window.addEventListener(
-    "pagehide",
-    function() {
-
-        vaultKey = null;
 
     }
-);
+
+
+    // =========================================================
+    // ENTER KEY
+    // =========================================================
+
+    document
+        .getElementById("vaultPassword")
+        .addEventListener(
+            "keydown",
+            function(event) {
+
+                if (
+                    event.key === "Enter"
+                ) {
+
+                    unlockVault();
+
+                }
+
+            }
+        );
+
+
+    // =========================================================
+    // PAGE LOAD
+    // =========================================================
+
+    window.addEventListener(
+        "DOMContentLoaded",
+        async function() {
+
+            /*
+             * If Flask says the vault is already unlocked,
+             * retrieve the same vault key into JavaScript.
+             *
+             * This is what makes Download continue working
+             * after upload/page reload.
+             */
+            if (
+                {{ vault_unlocked|tojson }}
+            ) {
+
+                const restored =
+                    await restoreVaultKey();
+
+
+                if (restored) {
+
+                    document.getElementById(
+                        "uploadButton"
+                    ).disabled = false;
+
+
+                    showStatus(
+                        "Pro Vault is unlocked."
+                    );
+
+                } else {
+
+                    document.getElementById(
+                        "uploadButton"
+                    ).disabled = true;
+
+                }
+
+            }
+
+        }
+    );
+
+
+    // =========================================================
+    // CLEAR KEY WHEN LEAVING PAGE
+    // =========================================================
+
+    window.addEventListener(
+        "pagehide",
+        function() {
+
+            vaultKey = null;
+
+        }
+    );
 
 </script>
 

@@ -68,7 +68,7 @@
         }
 
         .container {
-            max-width: 1150px;
+            max-width: 1250px;
             margin: 45px auto;
             padding: 0 25px;
         }
@@ -99,7 +99,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 800px;
+            min-width: 900px;
         }
 
         th {
@@ -158,6 +158,31 @@
             color: #fca5a5;
         }
 
+        .pending {
+            background: #422006;
+            border: 1px solid #92400e;
+            color: #fcd34d;
+        }
+
+        .delete-form {
+            margin: 0;
+        }
+
+        .delete-btn {
+            border: none;
+            background: #991b1b;
+            color: #ffffff;
+            padding: 7px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+        }
+
         .empty {
             text-align: center;
             padding: 50px 20px;
@@ -204,6 +229,16 @@
         .link-btn:hover {
             background: #273449;
             color: #ffffff;
+        }
+
+        .flash-message {
+            margin-bottom: 20px;
+            padding: 12px 15px;
+            border-radius: 7px;
+            background: #052e16;
+            border: 1px solid #166534;
+            color: #86efac;
+            font-size: 14px;
         }
 
         @media (max-width: 700px) {
@@ -260,9 +295,26 @@
         </div>
 
 
+        {% with messages = get_flashed_messages() %}
+
+            {% if messages %}
+
+                {% for message in messages %}
+
+                    <div class="flash-message">
+                        ✓ {{ message }}
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+
         <div class="card">
 
-           {% if logs %}
+            {% if logs %}
 
                 <table>
 
@@ -286,6 +338,10 @@
                                 Status
                             </th>
 
+                            <th>
+                                Action
+                            </th>
+
                         </tr>
 
                     </thead>
@@ -298,26 +354,32 @@
                         <tr>
 
                             <td class="username">
-                                {{ attempt[0] }}
-                            </td>
-
-
-                            <td class="ip">
                                 {{ attempt[1] }}
                             </td>
 
 
+                            <td class="ip">
+                                {{ attempt[2] }}
+                            </td>
+
+
                             <td class="time">
-                                {{ attempt[2]|ist }}
+                                {{ attempt[3]|ist }}
                             </td>
 
 
                             <td>
 
-                                {% if attempt[3] == "SUCCESS" %}
+                                {% if attempt[4] == "SUCCESS" %}
 
                                     <span class="status success">
                                         SUCCESS
+                                    </span>
+
+                                {% elif attempt[4] == "OTP_PENDING" %}
+
+                                    <span class="status pending">
+                                        OTP PENDING
                                     </span>
 
                                 {% else %}
@@ -327,6 +389,27 @@
                                     </span>
 
                                 {% endif %}
+
+                            </td>
+
+
+                            <td>
+
+                                <form
+                                    method="POST"
+                                    action="{{ url_for('delete_log', log_id=attempt[0]) }}"
+                                    class="delete-form"
+                                    onsubmit="return confirm('Are you sure you want to delete this login log?');"
+                                >
+
+                                    <button
+                                        type="submit"
+                                        class="delete-btn"
+                                    >
+                                        🗑 Delete
+                                    </button>
+
+                                </form>
 
                             </td>
 

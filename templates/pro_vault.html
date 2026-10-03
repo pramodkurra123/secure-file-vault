@@ -803,328 +803,285 @@
 
 <script>
 
+const form = document.getElementById("proVaultForm");
+
+
 /* =========================================================
    PRO VAULT UPLOAD
    ========================================================= */
 
-const form =
-    document.getElementById("proVaultForm");
+form.addEventListener("submit", async function(event) {
+
+    event.preventDefault();
+
+    const fileInput =
+        document.getElementById("file");
+
+    const passwordInput =
+        document.getElementById("vault_password");
+
+    const confirmInput =
+        document.getElementById("confirm_password");
+
+    const file =
+        fileInput.files[0];
+
+    const password =
+        passwordInput.value;
+
+    const confirmPassword =
+        confirmInput.value;
 
 
-form.addEventListener(
-    "submit",
-    async function(event) {
+    if (!file) {
 
-        event.preventDefault();
+        alert("Please select a file.");
 
-
-        const fileInput =
-            document.getElementById("file");
-
-        const passwordInput =
-            document.getElementById("vault_password");
-
-        const confirmInput =
-            document.getElementById("confirm_password");
+        return;
+    }
 
 
-        const file =
-            fileInput.files[0];
+    if (password.length < 8) {
 
-        const password =
-            passwordInput.value;
+        alert(
+            "Password must contain at least 8 characters."
+        );
 
-        const confirmPassword =
-            confirmInput.value;
+        return;
+    }
 
 
-        if (!file) {
+    if (password !== confirmPassword) {
 
-            alert(
-                "Please select a file."
+        alert("Passwords do not match.");
+
+        return;
+    }
+
+
+    if (file.size > 5 * 1024 * 1024) {
+
+        alert(
+            "File size must be 5 MB or less."
+        );
+
+        return;
+    }
+
+
+    const button =
+        form.querySelector(
+            "button[type='submit']"
+        );
+
+
+    button.disabled = true;
+
+    button.textContent =
+        "🔐 Encrypting...";
+
+
+    try {
+
+        const fileBuffer =
+            await file.arrayBuffer();
+
+
+        /* Generate random salt */
+
+        const salt =
+            crypto.getRandomValues(
+                new Uint8Array(16)
             );
 
-            return;
-        }
 
+        /* Generate random IV */
 
-        if (password.length < 8) {
-
-            alert(
-                "Password must contain at least 8 characters."
-            );
-
-            return;
-        }
-
-
-        if (password !== confirmPassword) {
-
-            alert(
-                "Passwords do not match."
-            );
-
-            return;
-        }
-
-
-        if (
-            file.size >
-            5 * 1024 * 1024
-        ) {
-
-            alert(
-                "File size must be 5 MB or less."
-            );
-
-            return;
-        }
-
-
-        const button =
-            form.querySelector(
-                "button[type='submit']"
+        const iv =
+            crypto.getRandomValues(
+                new Uint8Array(12)
             );
 
 
-        button.disabled = true;
+        /* Convert password to key material */
+
+        const encoder =
+            new TextEncoder();
+
+        const passwordData =
+            encoder.encode(password);
+
+
+        const keyMaterial =
+            await crypto.subtle.importKey(
+                "raw",
+                passwordData,
+                "PBKDF2",
+                false,
+                ["deriveKey"]
+            );
+
+
+        /* Derive AES-256 key */
+
+        const key =
+            await crypto.subtle.deriveKey(
+                {
+                    name: "PBKDF2",
+                    salt: salt,
+                    iterations: 600000,
+                    hash: "SHA-256"
+                },
+                keyMaterial,
+                {
+                    name: "AES-GCM",
+                    length: 256
+                },
+                false,
+                ["encrypt"]
+            );
+
+
+        /* Encrypt file */
+
+        const encrypted =
+            await crypto.subtle.encrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv
+                },
+                key,
+                fileBuffer
+            );
+
+
+        /*
+         * Payload:
+         * [salt][iv][encrypted data]
+         */
+
+        const result =
+            new Uint8Array(
+                salt.length +
+                iv.length +
+                encrypted.byteLength
+            );
+
+
+        result.set(
+            salt,
+            0
+        );
+
+
+        result.set(
+            iv,
+            salt.length
+        );
+
+
+        result.set(
+            new Uint8Array(encrypted),
+            salt.length + iv.length
+        );
+
+
+        const encryptedBlob =
+            new Blob(
+                [result],
+                {
+                    type:
+                        "application/octet-stream"
+                }
+            );
+
+
+        /* Send encrypted file */
+
+        const formData =
+            new FormData();
+
+
+        formData.append(
+            "encrypted_file",
+            encryptedBlob,
+            file.name + ".encrypted"
+        );
+
+
+        formData.append(
+            "original_name",
+            file.name
+        );
+
+
+        formData.append(
+            "original_size",
+            file.size
+        );
+
 
         button.textContent =
-            "🔐 Encrypting...";
+            "☁️ Uploading encrypted file...";
 
 
-        try {
-
-            const fileBuffer =
-                await file.arrayBuffer();
-
-
-            /*
-             * Random salt.
-             */
-
-            const salt =
-                crypto.getRandomValues(
-                    new Uint8Array(16)
-                );
-
-
-            /*
-             * Random AES-GCM IV.
-             */
-
-            const iv =
-                crypto.getRandomValues(
-                    new Uint8Array(12)
-                );
-
-
-            /*
-             * Convert password to key material.
-             */
-
-            const encoder =
-                new TextEncoder();
-
-
-            const passwordData =
-                encoder.encode(
-                    password
-                );
-
-
-            const keyMaterial =
-                await crypto.subtle.importKey(
-                    "raw",
-                    passwordData,
-                    "PBKDF2",
-                    false,
-                    ["deriveKey"]
-                );
-
-
-            /*
-             * PBKDF2-SHA256
-             */
-
-            const key =
-                await crypto.subtle.deriveKey(
-                    {
-                        name: "PBKDF2",
-                        salt: salt,
-                        iterations: 600000,
-                        hash: "SHA-256"
-                    },
-                    keyMaterial,
-                    {
-                        name: "AES-GCM",
-                        length: 256
-                    },
-                    false,
-                    ["encrypt"]
-                );
-
-
-            /*
-             * AES-256-GCM encryption.
-             */
-
-            const encrypted =
-                await crypto.subtle.encrypt(
-                    {
-                        name: "AES-GCM",
-                        iv: iv
-                    },
-                    key,
-                    fileBuffer
-                );
-
-
-            /*
-             * Payload:
-             *
-             * [16-byte salt]
-             * [12-byte IV]
-             * [encrypted file]
-             */
-
-            const result =
-                new Uint8Array(
-                    salt.length +
-                    iv.length +
-                    encrypted.byteLength
-                );
-
-
-            result.set(
-                salt,
-                0
+        const response =
+            await fetch(
+                "/pro-vault-upload",
+                {
+                    method: "POST",
+                    body: formData
+                }
             );
 
 
-            result.set(
-                iv,
-                salt.length
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.message ||
+                "Upload failed."
             );
-
-
-            result.set(
-                new Uint8Array(
-                    encrypted
-                ),
-                salt.length + iv.length
-            );
-
-
-            const encryptedBlob =
-                new Blob(
-                    [result],
-                    {
-                        type:
-                            "application/octet-stream"
-                    }
-                );
-
-
-            /*
-             * Send only encrypted data.
-             */
-
-            const formData =
-                new FormData();
-
-
-            formData.append(
-                "encrypted_file",
-                encryptedBlob,
-                file.name + ".encrypted"
-            );
-
-
-            formData.append(
-                "original_name",
-                file.name
-            );
-
-
-            formData.append(
-                "original_size",
-                file.size
-            );
-
-
-            button.textContent =
-                "☁️ Uploading encrypted file...";
-
-
-            const response =
-                await fetch(
-                    "/pro-vault-upload",
-                    {
-                        method: "POST",
-                        body: formData
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            if (!response.ok) {
-
-                throw new Error(
-                    data.message ||
-                    "Upload failed."
-                );
-
-            }
-
-
-            alert(
-                "🔐 File encrypted and uploaded successfully."
-            );
-
-
-            form.reset();
-
-
-            button.disabled = false;
-
-            button.textContent =
-                "🔐 Encrypt & Upload";
-
-
-            /*
-             * Refresh file list.
-             */
-
-            window.location.reload();
-
-
-        } catch (error) {
-
-            console.error(
-                "PRO VAULT ERROR:",
-                error
-            );
-
-
-            alert(
-                error.message ||
-                "An error occurred while encrypting the file."
-            );
-
-
-            button.disabled = false;
-
-            button.textContent =
-                "🔐 Encrypt & Upload";
 
         }
 
+
+        alert(
+            "🔐 File encrypted and uploaded successfully."
+        );
+
+
+        form.reset();
+
+
+        window.location.reload();
+
+
+    } catch (error) {
+
+        console.error(
+            "PRO VAULT UPLOAD ERROR:",
+            error
+        );
+
+
+        alert(
+            error.message ||
+            "An error occurred while encrypting the file."
+        );
+
+
+        button.disabled = false;
+
+        button.textContent =
+            "🔐 Encrypt & Upload";
+
     }
-);
+
+});
 
 
 /* =========================================================
@@ -1151,7 +1108,7 @@ async function downloadFile(
     if (password.length < 8) {
 
         alert(
-            "Invalid Pro Vault password."
+            "Password must contain at least 8 characters."
         );
 
         return;
@@ -1161,7 +1118,7 @@ async function downloadFile(
     try {
 
         /*
-         * Download encrypted bytes.
+         * Download encrypted data.
          */
 
         const response =
@@ -1186,13 +1143,17 @@ async function downloadFile(
                     message;
 
             } catch (e) {
-                // Ignore JSON parsing errors.
+
+                console.error(
+                    "Download response error:",
+                    e
+                );
+
             }
 
             throw new Error(
                 message
             );
-
         }
 
 
@@ -1201,15 +1162,14 @@ async function downloadFile(
 
 
         /*
-         * Validate payload.
+         * Minimum payload:
          *
          * 16 bytes salt
          * 12 bytes IV
          */
 
         if (
-            encryptedBuffer.byteLength <
-            28
+            encryptedBuffer.byteLength < 29
         ) {
 
             throw new Error(
@@ -1248,7 +1208,7 @@ async function downloadFile(
 
 
         /*
-         * Extract ciphertext.
+         * Extract encrypted data.
          */
 
         const ciphertext =
@@ -1258,17 +1218,14 @@ async function downloadFile(
 
 
         /*
-         * Convert password to key material.
+         * Convert password into key material.
          */
 
         const encoder =
             new TextEncoder();
 
-
         const passwordData =
-            encoder.encode(
-                password
-            );
+            encoder.encode(password);
 
 
         const keyMaterial =
@@ -1304,7 +1261,7 @@ async function downloadFile(
 
 
         /*
-         * Decrypt inside the browser.
+         * Decrypt locally.
          */
 
         const decrypted =
@@ -1319,7 +1276,7 @@ async function downloadFile(
 
 
         /*
-         * Create local file.
+         * Create decrypted file.
          */
 
         const blob =
@@ -1361,8 +1318,15 @@ async function downloadFile(
         link.remove();
 
 
-        URL.revokeObjectURL(
-            url
+        setTimeout(
+            function() {
+
+                URL.revokeObjectURL(
+                    url
+                );
+
+            },
+            1000
         );
 
 

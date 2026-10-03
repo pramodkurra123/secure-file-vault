@@ -2029,7 +2029,7 @@ def download_file(file_id):
 # =========================================================
 
 @app.route(
-    "/delete-file/<int:file_id>"
+    "/delete-file/<int:file_id>",
     methods=["POST"]
 )
 def delete_file(file_id):

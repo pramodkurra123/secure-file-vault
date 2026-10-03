@@ -1200,20 +1200,21 @@ async function unlockVault() {
 
     try {
 
+        const formData =
+            new FormData();
+
+        formData.append(
+            "password",
+            password
+        );
+
+
         const response =
             await fetch(
                 "/pro-vault-unlock",
                 {
                     method: "POST",
-
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
-
-                    body: JSON.stringify({
-                        password: password
-                    })
+                    body: formData
                 }
             );
 

@@ -603,7 +603,7 @@ def login():
 
         failed_count += 1
 
-        if failed_count == 3:
+                if failed_count == 3:
 
             alert_message = (
                 "Three failed login attempts detected. "
@@ -644,26 +644,6 @@ def login():
         else:
 
             connection.commit()
-
-        connection.close()
-
-        if failed_count >= 3:
-
-            return render_template(
-                "login.html",
-                error=(
-                    "This IP address is temporarily "
-                    "blocked for invalid login attempts. "
-                    "Try again after 5 minutes."
-                )
-            )
-
-        return render_template(
-            "login.html",
-            error="Invalid username or password"
-        )
-
-    return render_template("login.html")
 
 
 @app.route("/verify-otp", methods=["GET", "POST"])

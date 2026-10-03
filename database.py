@@ -8,7 +8,6 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 def get_connection():
-
     if not DATABASE_URL:
         raise RuntimeError(
             "DATABASE_URL environment variable is not set."
@@ -96,8 +95,7 @@ def create_database():
                 original_name TEXT NOT NULL,
                 file_data BYTEA NOT NULL,
                 file_size BIGINT NOT NULL,
-                uploaded_at TIMESTAMP NOT NULL,
-                encryption_version INTEGER NOT NULL DEFAULT 1
+                uploaded_at TIMESTAMP NOT NULL
             )
         """)
 
@@ -112,6 +110,7 @@ def create_database():
             )
         """)
 
+        # Compatibility with older databases
         connection.execute("""
             ALTER TABLE users
             ADD COLUMN IF NOT EXISTS email TEXT
@@ -119,8 +118,27 @@ def create_database():
 
         connection.execute("""
             ALTER TABLE pro_vault_files
-            ADD COLUMN IF NOT EXISTS encryption_version INTEGER NOT NULL DEFAULT 1
+            ADD COLUMN IF NOT EXISTS stored_name TEXT
         """)
+
+        connection.execute("""
+            ALTER TABLE pro_vault_files
+            ADD COLUMN IF NOT EXISTS original_name TEXT
+        """)
+
+        connection.execute("""
+            ALTER TABLE pro_vault_files
+            ADD COLUMN IF NOT EXISTS file_size BIGINT
+        """)
+
+        connection.execute("""
+            ALTER TABLE pro_vault_files
+            ADD COLUMN IF NOT EXISTS uploaded_at TIMESTAMP
+        """)
+
+        # Old encryption_version column is intentionally left in
+        # existing databases for compatibility, but the new
+        # application does not use Version 1 / Version 2 logic.
 
         connection.execute("""
             ALTER TABLE vault_keys
@@ -129,15 +147,31 @@ def create_database():
 
         connection.commit()
 
-        admin_username = os.environ.get("ADMIN_USERNAME")
-        admin_password = os.environ.get("ADMIN_PASSWORD")
-        admin_email = os.environ.get("ADMIN_EMAIL")
+        admin_username = os.environ.get(
+            "ADMIN_USERNAME"
+        )
 
-        if not admin_username or not admin_password or not admin_email:
+        admin_password = os.environ.get(
+            "ADMIN_PASSWORD"
+        )
 
+        admin_email = os.environ.get(
+            "ADMIN_EMAIL"
+        )
+
+        if not admin_username:
             raise RuntimeError(
-                "ADMIN_USERNAME, ADMIN_PASSWORD and "
-                "ADMIN_EMAIL environment variables are required."
+                "ADMIN_USERNAME environment variable is required."
+            )
+
+        if not admin_password:
+            raise RuntimeError(
+                "ADMIN_PASSWORD environment variable is required."
+            )
+
+        if not admin_email:
+            raise RuntimeError(
+                "ADMIN_EMAIL environment variable is required."
             )
 
         existing_user = connection.execute(
@@ -158,7 +192,12 @@ def create_database():
             connection.execute(
                 """
                 INSERT INTO users
-                (username, password, role, email)
+                (
+                    username,
+                    password,
+                    role,
+                    email
+                )
                 VALUES (%s, %s, %s, %s)
                 """,
                 (
@@ -189,7 +228,6 @@ def create_database():
     except Exception:
 
         connection.rollback()
-
         raise
 
     finally:

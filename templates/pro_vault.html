@@ -656,52 +656,304 @@
 
     <script>
 
-        const form = document.getElementById(
-            "proVaultForm"
-        );
+    const form = document.getElementById("proVaultForm");
 
-        form.addEventListener(
-            "submit",
-            function(event) {
+    form.addEventListener("submit", async function(event) {
 
-                const password =
-                    document.getElementById(
-                        "vault_password"
-                    ).value;
+        event.preventDefault();
 
-                const confirmPassword =
-                    document.getElementById(
-                        "confirm_password"
-                    ).value;
+        const fileInput = document.getElementById("file");
 
-                if (password !== confirmPassword) {
+        const passwordInput =
+            document.getElementById("vault_password");
 
-                    event.preventDefault();
+        const confirmInput =
+            document.getElementById("confirm_password");
 
-                    alert(
-                        "Passwords do not match."
-                    );
+        const file = fileInput.files[0];
 
-                    return;
+        const password = passwordInput.value;
 
-                }
+        const confirmPassword = confirmInput.value;
 
-                if (password.length < 8) {
 
-                    event.preventDefault();
+        if (!file) {
 
-                    alert(
-                        "Password must contain at least 8 characters."
-                    );
+            alert("Please select a file.");
 
-                    return;
+            return;
+        }
 
-                }
+
+        if (password.length < 8) {
+
+            alert("Password must contain at least 8 characters.");
+
+            return;
+        }
+
+
+        if (password !== confirmPassword) {
+
+            alert("Passwords do not match.");
+
+            return;
+        }
+
+
+        if (file.size > 5 * 1024 * 1024) {
+
+            alert("File size must be 5 MB or less.");
+
+            return;
+        }
+
+
+        const button =
+            form.querySelector("button[type='submit']");
+
+        button.disabled = true;
+
+        button.textContent =
+            "🔐 Encrypting...";
+
+
+        try {
+
+            /*
+             * Read the original file.
+             */
+
+            const fileBuffer =
+                await file.arrayBuffer();
+
+
+            /*
+             * Generate a random salt.
+             *
+             * The salt is NOT secret.
+             * It is stored together with the encrypted file.
+             */
+
+            const salt =
+                crypto.getRandomValues(
+                    new Uint8Array(16)
+                );
+
+
+            /*
+             * Generate a random IV for AES-GCM.
+             */
+
+            const iv =
+                crypto.getRandomValues(
+                    new Uint8Array(12)
+                );
+
+
+            /*
+             * Convert password into key material.
+             */
+
+            const encoder =
+                new TextEncoder();
+
+            const passwordData =
+                encoder.encode(password);
+
+
+            const keyMaterial =
+                await crypto.subtle.importKey(
+                    "raw",
+                    passwordData,
+                    "PBKDF2",
+                    false,
+                    ["deriveKey"]
+                );
+
+
+            /*
+             * Derive the encryption key.
+             *
+             * 600,000 PBKDF2-SHA256 iterations.
+             */
+
+            const key =
+                await crypto.subtle.deriveKey(
+                    {
+                        name: "PBKDF2",
+                        salt: salt,
+                        iterations: 600000,
+                        hash: "SHA-256"
+                    },
+                    keyMaterial,
+                    {
+                        name: "AES-GCM",
+                        length: 256
+                    },
+                    false,
+                    ["encrypt"]
+                );
+
+
+            /*
+             * Encrypt the file.
+             */
+
+            const encrypted =
+                await crypto.subtle.encrypt(
+                    {
+                        name: "AES-GCM",
+                        iv: iv
+                    },
+                    key,
+                    fileBuffer
+                );
+
+
+            /*
+             * Create encrypted payload.
+             *
+             * Format:
+             *
+             * [salt][iv][encrypted data]
+             */
+
+            const result =
+                new Uint8Array(
+                    salt.length +
+                    iv.length +
+                    encrypted.byteLength
+                );
+
+
+            result.set(
+                salt,
+                0
+            );
+
+
+            result.set(
+                iv,
+                salt.length
+            );
+
+
+            result.set(
+                new Uint8Array(encrypted),
+                salt.length + iv.length
+            );
+
+
+            /*
+             * Convert encrypted data to Blob.
+             */
+
+            const encryptedBlob =
+                new Blob(
+                    [result],
+                    {
+                        type: "application/octet-stream"
+                    }
+                );
+
+
+            /*
+             * Send ONLY encrypted data.
+             *
+             * Password is NOT included.
+             *
+             * Original file is NOT included.
+             */
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                "encrypted_file",
+                encryptedBlob,
+                file.name + ".encrypted"
+            );
+
+
+            formData.append(
+                "original_name",
+                file.name
+            );
+
+
+            formData.append(
+                "original_size",
+                file.size
+            );
+
+
+            button.textContent =
+                "☁️ Uploading encrypted file...";
+
+
+            const response =
+                await fetch(
+                    "/pro-vault-upload",
+                    {
+                        method: "POST",
+                        body: formData
+                    }
+                );
+
+
+            const data =
+                await response.json();
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    data.message ||
+                    "Upload failed."
+                );
 
             }
-        );
 
-    </script>
+
+            alert(
+                "🔐 File encrypted and uploaded successfully."
+            );
+
+
+            form.reset();
+
+
+            button.disabled = false;
+
+            button.textContent =
+                "🔐 Encrypt & Upload";
+
+
+        } catch (error) {
+
+            console.error(
+                "PRO VAULT ERROR:",
+                error
+            );
+
+
+            alert(
+                error.message ||
+                "An error occurred while encrypting the file."
+            );
+
+
+            button.disabled = false;
+
+            button.textContent =
+                "🔐 Encrypt & Upload";
+
+        }
+
+    });
+
+</script>
 
 
 </body>

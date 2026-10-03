@@ -2013,79 +2013,52 @@ def pro_vault_upload():
 # PRO VAULT DOWNLOAD
 # =========================================================
 
-@app.route(
-    "/pro-vault-download/<int:file_id>"
-)
+@app.route("/pro-vault-download/<int:file_id>")
 def pro_vault_download(file_id):
 
     if not login_required():
-
         return {
             "message": "Authentication required."
         }, 401
 
-    if not session.get(
-        "vault_unlocked"
-    ):
-
+    if not session.get("vault_unlocked"):
         return {
             "message": "Unlock the Pro Vault first."
         }, 403
 
     connection = get_connection()
 
-    row = connection.execute(
-        """
-        SELECT
-            original_name,
-            file_data,
-            file_size
-        FROM pro_vault_files
-        WHERE id = %s
-        AND username = %s
-        """,
-        (
-            file_id,
-            session.get("username")
-        )
-    ).fetchone()
+    try:
+        row = connection.execute(
+            """
+            SELECT
+                original_name,
+                file_data
+            FROM pro_vault_files
+            WHERE id = %s
+            AND username = %s
+            """,
+            (
+                file_id,
+                session.get("username")
+            )
+        ).fetchone()
 
-    connection.close()
+    finally:
+        connection.close()
 
     if not row:
-
         return {
             "message": "File not found."
         }, 404
 
-    original_name = row[0]
+    encrypted_data = bytes(row[1])
 
-    encrypted_data = bytes(
-        row[1]
-    )
+    response = make_response(encrypted_data)
 
-    response = make_response(
-        encrypted_data
-    )
-
-    response.headers[
-        "Content-Type"
-    ] = "application/octet-stream"
-
-    # The browser receives the encrypted data.
-    # The browser decrypts it and downloads the
-    # original filename.
-    response.headers[
-        "X-Original-Filename"
-    ] = original_name
-
-    response.headers[
-        "X-Original-Size"
-    ] = str(row[2])
-
-    response.headers[
-        "Cache-Control"
-    ] = "no-store"
+    response.headers["Content-Type"] = "application/octet-stream"
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Vault-Encrypted"] = "1"
 
     return response
 

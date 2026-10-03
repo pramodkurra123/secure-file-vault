@@ -1202,6 +1202,22 @@ def dashboard():
         username=session.get("username"),
         role=session.get("role")
     )
+# =========================================================
+# PRO VAULT
+# =========================================================
+
+@app.route("/pro-vault")
+def pro_vault():
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    return render_template(
+        "pro_vault.html"
+    )
 
 
 # =========================================================

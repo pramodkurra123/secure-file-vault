@@ -176,6 +176,82 @@ If you did not attempt to log in, you can safely ignore this email.
         )
 
         raise
+def send_security_alert_email(ip_address, message, timestamp):
+
+    smtp_host = os.environ.get("BREVO_SMTP_HOST")
+    smtp_port = int(os.environ.get("BREVO_SMTP_PORT", "2525"))
+    smtp_login = os.environ.get("BREVO_SMTP_LOGIN")
+    smtp_password = os.environ.get("BREVO_SMTP_PASSWORD")
+    sender_email = os.environ.get("BREVO_SENDER_EMAIL")
+    sender_name = os.environ.get(
+        "BREVO_SENDER_NAME",
+        "Secure File Vault"
+    )
+
+    admin_email = os.environ.get("ADMIN_EMAIL")
+
+    if not admin_email:
+        raise RuntimeError(
+            "ADMIN_EMAIL environment variable is not set."
+        )
+
+    email = EmailMessage()
+
+    email["Subject"] = "Security Alert - Secure File Vault"
+    email["From"] = f"{sender_name} <{sender_email}>"
+    email["To"] = admin_email
+
+    email.set_content(
+        f"""
+Secure File Vault - Security Alert
+
+A security event has been detected.
+
+Event:
+{message}
+
+IP Address:
+{ip_address}
+
+Time:
+{timestamp.strftime("%d-%m-%Y %I:%M:%S %p")} UTC
+
+The IP address has been temporarily blocked according to
+the configured security policy.
+
+Please review the security logs if necessary.
+
+Secure File Vault
+"""
+    )
+
+    try:
+
+        with smtplib.SMTP(
+            smtp_host,
+            smtp_port,
+            timeout=15
+        ) as server:
+
+            server.starttls()
+
+            server.login(
+                smtp_login,
+                smtp_password
+            )
+
+            server.send_message(email)
+
+        print(
+            f"SECURITY ALERT EMAIL SENT TO {admin_email}"
+        )
+
+    except Exception as e:
+
+        print(
+            f"SECURITY ALERT EMAIL ERROR: "
+            f"{type(e).__name__}: {e}"
+        )
 
 def generate_and_send_otp(username, email):
 
@@ -485,22 +561,40 @@ def login():
 
         if failed_count == 3:
 
-            connection.execute(
-                """
-                INSERT INTO alerts
-                (ip_address, message, timestamp)
-                VALUES (%s, %s, %s)
-                """,
-                (
-                    ip_address,
-                    "Three failed login attempts detected. Further invalid login attempts from this IP are temporarily blocked for 5 minutes.",
-                    now
-                )
-            )
+    alert_message = (
+        "Three failed login attempts detected. "
+        "Further invalid login attempts from this IP "
+        "are temporarily blocked for 5 minutes."
+    )
 
+    connection.execute(
+        """
+        INSERT INTO alerts
+        (ip_address, message, timestamp)
+        VALUES (%s, %s, %s)
+        """,
+        (
+            ip_address,
+            alert_message,
+            now
+        )
+    )
 
-        connection.commit()
-        connection.close()
+    connection.commit()
+
+    try:
+
+        send_security_alert_email(
+            ip_address,
+            alert_message,
+            now
+        )
+
+    except Exception as e:
+
+        print(
+            f"Security alert notification failed: {e}"
+        )
 
 
         if failed_count >= 3:

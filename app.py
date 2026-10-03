@@ -1586,7 +1586,43 @@ def pro_vault_download(file_id):
     ] = "no-store"
 
     return response
+@app.route(
+    "/pro-vault-delete/<int:file_id>",
+    methods=["POST"]
+)
+def pro_vault_delete(file_id):
 
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    connection = get_connection()
+
+    connection.execute(
+        """
+        DELETE FROM pro_vault_files
+        WHERE id = %s
+        AND username = %s
+        """,
+        (
+            file_id,
+            session.get("username")
+        )
+    )
+
+    connection.commit()
+
+    connection.close()
+
+    flash(
+        "Pro Vault file deleted successfully."
+    )
+
+    return redirect(
+        url_for("pro_vault")
+    )
 
 # =========================================================
 # ENCRYPTION FLOW

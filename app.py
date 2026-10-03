@@ -55,7 +55,6 @@ create_database()
 # =========================================================
 
 def utc_now():
-
     return datetime.now(
         timezone.utc
     ).replace(
@@ -185,7 +184,7 @@ This OTP is valid for 5 minutes.
 
 You have a maximum of 3 verification attempts.
 
-If you did not attempt to log in, please ignore this email.
+If you did not request this OTP, please ignore this email.
 
 Secure File Vault
 """
@@ -394,98 +393,102 @@ def generate_and_send_otp(
 
     connection = get_connection()
 
-    now = utc_now()
+    try:
 
-    recent_count = connection.execute(
-        """
-        SELECT COUNT(*)
-        FROM otp_codes
-        WHERE username = %s
-        AND created_at >= %s
-        """,
-        (
-            username,
-            now - timedelta(minutes=15)
-        )
-    ).fetchone()[0]
+        now = utc_now()
 
-    if recent_count >= 3:
+        recent_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM otp_codes
+            WHERE username = %s
+            AND created_at >= %s
+            """,
+            (
+                username,
+                now - timedelta(minutes=15)
+            )
+        ).fetchone()[0]
 
-        connection.close()
-
-        return False, (
-            "Too many OTP requests. "
-            "Please try again later."
-        )
-
-    last_otp = connection.execute(
-        """
-        SELECT created_at
-        FROM otp_codes
-        WHERE username = %s
-        ORDER BY created_at DESC
-        LIMIT 1
-        """,
-        (username,)
-    ).fetchone()
-
-    if last_otp:
-
-        if now - last_otp[0] < timedelta(
-            seconds=60
-        ):
-
-            connection.close()
+        if recent_count >= 3:
 
             return False, (
-                "Please wait 60 seconds "
-                "before requesting another OTP."
+                "Too many OTP requests. "
+                "Please try again later."
             )
 
-    connection.execute(
-        """
-        UPDATE otp_codes
-        SET used = TRUE
-        WHERE username = %s
-        AND used = FALSE
-        """,
-        (username,)
-    )
+        last_otp = connection.execute(
+            """
+            SELECT created_at
+            FROM otp_codes
+            WHERE username = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (username,)
+        ).fetchone()
 
-    otp = f"{secrets.randbelow(1000000):06d}"
+        if last_otp:
 
-    otp_hash = hashlib.sha256(
-        otp.encode()
-    ).hexdigest()
+            if now - last_otp[0] < timedelta(
+                seconds=60
+            ):
 
-    created_at = now
+                return False, (
+                    "Please wait 60 seconds "
+                    "before requesting another OTP."
+                )
 
-    expires_at = (
-        now + timedelta(minutes=5)
-    )
-
-    connection.execute(
-        """
-        INSERT INTO otp_codes
-        (
-            username,
-            otp_hash,
-            created_at,
-            expires_at,
-            attempts,
-            used
+        connection.execute(
+            """
+            UPDATE otp_codes
+            SET used = TRUE
+            WHERE username = %s
+            AND used = FALSE
+            """,
+            (username,)
         )
-        VALUES (%s, %s, %s, %s, 0, FALSE)
-        """,
-        (
-            username,
-            otp_hash,
-            created_at,
-            expires_at
-        )
-    )
 
-    connection.commit()
+        otp = f"{secrets.randbelow(1000000):06d}"
+
+        otp_hash = hashlib.sha256(
+            otp.encode()
+        ).hexdigest()
+
+        created_at = now
+
+        expires_at = (
+            now + timedelta(minutes=5)
+        )
+
+        connection.execute(
+            """
+            INSERT INTO otp_codes
+            (
+                username,
+                otp_hash,
+                created_at,
+                expires_at,
+                attempts,
+                used
+            )
+            VALUES (%s, %s, %s, %s, 0, FALSE)
+            """,
+            (
+                username,
+                otp_hash,
+                created_at,
+                expires_at
+            )
+        )
+
+        connection.commit()
+
+    except Exception:
+
+        connection.rollback()
+        connection.close()
+        raise
 
     connection.close()
 
@@ -505,41 +508,55 @@ def generate_and_send_otp(
 
 
 # =========================================================
-# PRO VAULT KEY HELPERS
+# PRO VAULT DATABASE SCHEMA
 # =========================================================
 
 def ensure_pro_vault_schema():
+
     connection = get_connection()
 
     try:
+
         connection.execute("""
             ALTER TABLE pro_vault_files
-            ADD COLUMN IF NOT EXISTS encryption_version INTEGER NOT NULL DEFAULT 1
+            ADD COLUMN IF NOT EXISTS
+            encryption_version INTEGER
+            NOT NULL DEFAULT 1
         """)
 
         connection.execute("""
             ALTER TABLE vault_keys
-            ADD COLUMN IF NOT EXISTS password_hash TEXT
+            ADD COLUMN IF NOT EXISTS
+            password_hash TEXT
         """)
 
         connection.commit()
 
     except Exception:
+
         connection.rollback()
         raise
 
     finally:
+
         connection.close()
 
 
 ensure_pro_vault_schema()
 
 
+# =========================================================
+# PRO VAULT RECOVERY KEY
+# =========================================================
+
 def get_recovery_key():
 
-    key = os.environ.get("VAULT_RECOVERY_KEY")
+    key = os.environ.get(
+        "VAULT_RECOVERY_KEY"
+    )
 
     if not key:
+
         raise RuntimeError(
             "VAULT_RECOVERY_KEY is not set."
         )
@@ -565,26 +582,37 @@ def decrypt_recovery_data(data):
     return cipher.decrypt(data)
 
 
+# =========================================================
+# VAULT KEY DATABASE HELPERS
+# =========================================================
+
 def get_vault_record(username):
 
     connection = get_connection()
 
-    row = connection.execute(
-        """
-        SELECT recovery_data,
-               password_hash
-        FROM vault_keys
-        WHERE username = %s
-        """,
-        (username,)
-    ).fetchone()
+    try:
 
-    connection.close()
+        row = connection.execute(
+            """
+            SELECT
+                recovery_data,
+                password_hash
+            FROM vault_keys
+            WHERE username = %s
+            """,
+            (username,)
+        ).fetchone()
+
+    finally:
+
+        connection.close()
 
     if not row:
+
         return None, None
 
     try:
+
         vault_key = decrypt_recovery_data(
             bytes(row[0])
         )
@@ -617,9 +645,12 @@ def create_vault_key(username):
     )
 
     if existing_key:
+
         return existing_key
 
-    vault_key = secrets.token_bytes(32)
+    vault_key = secrets.token_bytes(
+        32
+    )
 
     encrypted_key = encrypt_recovery_data(
         vault_key
@@ -629,29 +660,39 @@ def create_vault_key(username):
 
     connection = get_connection()
 
-    connection.execute(
-        """
-        INSERT INTO vault_keys
-        (
-            username,
-            recovery_data,
-            created_at,
-            updated_at
-        )
-        VALUES (%s, %s, %s, %s)
-        ON CONFLICT (username)
-        DO NOTHING
-        """,
-        (
-            username,
-            encrypted_key,
-            now,
-            now
-        )
-    )
+    try:
 
-    connection.commit()
-    connection.close()
+        connection.execute(
+            """
+            INSERT INTO vault_keys
+            (
+                username,
+                recovery_data,
+                created_at,
+                updated_at
+            )
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (username)
+            DO NOTHING
+            """,
+            (
+                username,
+                encrypted_key,
+                now,
+                now
+            )
+        )
+
+        connection.commit()
+
+    except Exception:
+
+        connection.rollback()
+        raise
+
+    finally:
+
+        connection.close()
 
     existing_key = get_vault_key(
         username
@@ -669,41 +710,61 @@ def get_vault_password_hash(username):
     return password_hash
 
 
-def set_vault_password(username, password):
+def set_vault_password(
+    username,
+    password
+):
 
     password_hash = generate_password_hash(
         password
     )
 
-    create_vault_key(username)
+    create_vault_key(
+        username
+    )
 
     connection = get_connection()
 
-    connection.execute(
-        """
-        UPDATE vault_keys
-        SET password_hash = %s,
-            updated_at = %s
-        WHERE username = %s
-        """,
-        (
-            password_hash,
-            utc_now(),
-            username
+    try:
+
+        connection.execute(
+            """
+            UPDATE vault_keys
+            SET
+                password_hash = %s,
+                updated_at = %s
+            WHERE username = %s
+            """,
+            (
+                password_hash,
+                utc_now(),
+                username
+            )
         )
-    )
 
-    connection.commit()
-    connection.close()
+        connection.commit()
+
+    except Exception:
+
+        connection.rollback()
+        raise
+
+    finally:
+
+        connection.close()
 
 
-def verify_vault_password(username, password):
+def verify_vault_password(
+    username,
+    password
+):
 
     password_hash = get_vault_password_hash(
         username
     )
 
     if not password_hash:
+
         return False
 
     return check_password_hash(
@@ -715,13 +776,12 @@ def verify_vault_password(username, password):
 def vault_password_is_set(username):
 
     return bool(
-        get_vault_password_hash(username)
+        get_vault_password_hash(
+            username
+        )
     )
 
 
-# =========================================================
-# HOME
-# =========================================================
 # =========================================================
 # HOME
 # =========================================================
@@ -768,26 +828,19 @@ def login():
 
         connection = get_connection()
 
-        # -------------------------------------------------
-        # FIND USER
-        # -------------------------------------------------
-
         user = connection.execute(
             """
-            SELECT id,
-                   username,
-                   password,
-                   role,
-                   email
+            SELECT
+                id,
+                username,
+                password,
+                role,
+                email
             FROM users
             WHERE username = %s
             """,
             (username,)
         ).fetchone()
-
-        # -------------------------------------------------
-        # COUNT RECENT FAILED ATTEMPTS
-        # -------------------------------------------------
 
         failed_count = connection.execute(
             """
@@ -809,10 +862,6 @@ def login():
             f"Count: {failed_count}"
         )
 
-        # -------------------------------------------------
-        # BLOCK AFTER 3 PREVIOUS FAILURES
-        # -------------------------------------------------
-
         if failed_count >= 3:
 
             if user is not None and user[3] == "admin":
@@ -826,12 +875,6 @@ def login():
 
                 connection.close()
 
-                print(
-                    f"IP BLOCKED | "
-                    f"IP: {ip_address} | "
-                    f"Failed Count: {failed_count}"
-                )
-
                 return render_template(
                     "login.html",
                     error=(
@@ -840,10 +883,6 @@ def login():
                         "of multiple failed login attempts."
                     )
                 )
-
-        # -------------------------------------------------
-        # UNKNOWN USERNAME
-        # -------------------------------------------------
 
         if user is None:
 
@@ -870,17 +909,6 @@ def login():
 
             connection.commit()
 
-            print(
-                f"FAILED LOGIN | "
-                f"Unknown user | "
-                f"IP: {ip_address} | "
-                f"Count: {failed_count}"
-            )
-
-            # -------------------------------------------------
-            # SECURITY ALERT
-            # -------------------------------------------------
-
             if failed_count == 3:
 
                 alert_message = (
@@ -923,36 +951,13 @@ def login():
 
                     connection.commit()
 
-                    print(
-                        f"SECURITY ALERT CREATED | "
-                        f"IP: {ip_address}"
-                    )
-
                     connection.close()
 
-                    email_sent = (
-                        send_security_alert_email(
-                            ip_address,
-                            alert_message,
-                            now
-                        )
+                    send_security_alert_email(
+                        ip_address,
+                        alert_message,
+                        now
                     )
-
-                    if email_sent:
-
-                        print(
-                            f"SECURITY ALERT EMAIL "
-                            f"SUCCESS | "
-                            f"IP: {ip_address}"
-                        )
-
-                    else:
-
-                        print(
-                            f"SECURITY ALERT EMAIL "
-                            f"FAILED | "
-                            f"IP: {ip_address}"
-                        )
 
                 else:
 
@@ -974,10 +979,6 @@ def login():
                 error="Invalid username or password"
             )
 
-        # -------------------------------------------------
-        # USER DETAILS
-        # -------------------------------------------------
-
         db_username = user[1]
         password_hash = user[2]
         role = user[3]
@@ -987,10 +988,6 @@ def login():
             password_hash,
             password
         )
-
-        # -------------------------------------------------
-        # WRONG PASSWORD
-        # -------------------------------------------------
 
         if not password_valid:
 
@@ -1017,18 +1014,6 @@ def login():
 
             connection.commit()
 
-            print(
-                f"FAILED LOGIN | "
-                f"Username: {db_username} | "
-                f"Role: {role} | "
-                f"IP: {ip_address} | "
-                f"Count: {failed_count}"
-            )
-
-            # -------------------------------------------------
-            # THIRD FAILED ATTEMPT
-            # -------------------------------------------------
-
             if failed_count == 3:
 
                 alert_message = (
@@ -1071,45 +1056,17 @@ def login():
 
                     connection.commit()
 
-                    print(
-                        f"SECURITY ALERT CREATED | "
-                        f"IP: {ip_address}"
-                    )
-
                     connection.close()
 
-                    email_sent = (
-                        send_security_alert_email(
-                            ip_address,
-                            alert_message,
-                            now
-                        )
+                    send_security_alert_email(
+                        ip_address,
+                        alert_message,
+                        now
                     )
-
-                    if email_sent:
-
-                        print(
-                            f"SECURITY ALERT EMAIL "
-                            f"SUCCESS | "
-                            f"IP: {ip_address}"
-                        )
-
-                    else:
-
-                        print(
-                            f"SECURITY ALERT EMAIL "
-                            f"FAILED | "
-                            f"IP: {ip_address}"
-                        )
 
                 else:
 
                     connection.close()
-
-                # -------------------------------------------------
-                # ADMIN IS NOT BLOCKED
-                # NORMAL USER IS BLOCKED
-                # -------------------------------------------------
 
                 if role == "admin":
 
@@ -1138,10 +1095,6 @@ def login():
                 "login.html",
                 error="Invalid username or password"
             )
-
-        # -------------------------------------------------
-        # PASSWORD CORRECT
-        # -------------------------------------------------
 
         if not email:
 
@@ -1176,7 +1129,6 @@ def login():
         )
 
         connection.commit()
-
         connection.close()
 
         sent, message = generate_and_send_otp(
@@ -1199,13 +1151,6 @@ def login():
             ip_address
         )
 
-        print(
-            f"PASSWORD VERIFIED | "
-            f"OTP SENT | "
-            f"Username: {db_username} | "
-            f"IP: {ip_address}"
-        )
-
         return redirect(
             url_for("verify_otp")
         )
@@ -1216,7 +1161,7 @@ def login():
 
 
 # =========================================================
-# VERIFY OTP
+# VERIFY LOGIN OTP
 # =========================================================
 
 @app.route(
@@ -1258,12 +1203,13 @@ def verify_otp():
 
             otp_row = connection.execute(
                 """
-                SELECT id,
-                       otp_hash,
-                       created_at,
-                       expires_at,
-                       attempts,
-                       used
+                SELECT
+                    id,
+                    otp_hash,
+                    created_at,
+                    expires_at,
+                    attempts,
+                    used
                 FROM otp_codes
                 WHERE username = %s
                 ORDER BY created_at DESC
@@ -1365,14 +1311,11 @@ def verify_otp():
                     error="Invalid OTP."
                 )
 
-            # -------------------------------------------------
-            # OTP SUCCESS
-            # -------------------------------------------------
-
             user = connection.execute(
                 """
-                SELECT username,
-                       role
+                SELECT
+                    username,
+                    role
                 FROM users
                 WHERE username = %s
                 """,
@@ -1385,9 +1328,7 @@ def verify_otp():
 
                 return render_template(
                     "otp.html",
-                    error=(
-                        "User account was not found."
-                    )
+                    error="User account was not found."
                 )
 
             connection.execute(
@@ -1426,12 +1367,6 @@ def verify_otp():
 
             connection.commit()
 
-            print(
-                f"OTP LOGIN SUCCESS | "
-                f"Username: {username} | "
-                f"IP: {ip_address}"
-            )
-
         except Exception as e:
 
             connection.rollback()
@@ -1468,7 +1403,7 @@ def verify_otp():
 
 
 # =========================================================
-# RESEND OTP
+# RESEND LOGIN OTP
 # =========================================================
 
 @app.route(
@@ -1570,6 +1505,10 @@ def pro_vault():
             url_for("login")
         )
 
+    username = session.get(
+        "username"
+    )
+
     connection = get_connection()
 
     files = connection.execute(
@@ -1584,14 +1523,10 @@ def pro_vault():
         WHERE username = %s
         ORDER BY uploaded_at DESC
         """,
-        (
-            session.get("username"),
-        )
+        (username,)
     ).fetchall()
 
     connection.close()
-
-    username = session.get("username")
 
     vault_key = create_vault_key(
         username
@@ -1606,7 +1541,10 @@ def pro_vault():
         files=files,
         vault_initialized=bool(vault_key),
         vault_password_set=password_set,
-        vault_unlocked=session.get("vault_unlocked", False)
+        vault_unlocked=session.get(
+            "vault_unlocked",
+            False
+        )
     )
 
 
@@ -1633,7 +1571,7 @@ def pro_vault_unlock():
     password = request.form.get(
         "vault_password",
         ""
-    )
+    ).strip()
 
     if not password:
 
@@ -1641,25 +1579,38 @@ def pro_vault_unlock():
             "message": "Vault password is required."
         }, 400
 
+    if len(password) < 8:
+
+        return {
+            "message": (
+                "Vault password must contain "
+                "at least 8 characters."
+            )
+        }, 400
+
     try:
 
-        create_vault_key(username)
+        # Make sure the user has a recoverable
+        # 32-byte vault encryption key.
+        vault_key = create_vault_key(
+            username
+        )
+
+        if not vault_key:
+
+            return {
+                "message": "Vault key is unavailable."
+            }, 500
 
         password_hash = get_vault_password_hash(
             username
         )
 
-        # First-time setup.
+        # -------------------------------------------------
+        # FIRST-TIME VAULT SETUP
+        # -------------------------------------------------
+
         if not password_hash:
-
-            if len(password) < 8:
-
-                return {
-                    "message": (
-                        "Vault password must contain "
-                        "at least 8 characters."
-                    )
-                }, 400
 
             set_vault_password(
                 username,
@@ -1668,29 +1619,27 @@ def pro_vault_unlock():
 
             session["vault_unlocked"] = True
 
-            vault_key = get_vault_key(
-                username
-            )
-
             return {
                 "message": "Vault password created.",
                 "vault_key": vault_key.hex()
             }, 200
+
+        # -------------------------------------------------
+        # EXISTING VAULT PASSWORD
+        # -------------------------------------------------
 
         if not check_password_hash(
             password_hash,
             password
         ):
 
+            session["vault_unlocked"] = False
+
             return {
                 "message": "Incorrect vault password."
             }, 401
 
         session["vault_unlocked"] = True
-
-        vault_key = get_vault_key(
-            username
-        )
 
         return {
             "message": "Vault unlocked.",
@@ -1846,7 +1795,6 @@ def pro_vault_upload():
             "message": "Unsupported encryption version."
         }, 400
 
-    # Version 2 files use the server-recovered VEK.
     if encryption_version == 2:
 
         if not session.get(
@@ -1926,13 +1874,13 @@ def pro_vault_upload():
             f"{type(e).__name__}: {e}"
         )
 
-        connection.close()
-
         return {
             "message": "Unable to store encrypted file."
         }, 500
 
-    connection.close()
+    finally:
+
+        connection.close()
 
     print(
         f"PRO VAULT ENCRYPTED FILE STORED | "
@@ -1998,42 +1946,45 @@ def pro_vault_migrate(file_id):
 
     connection = get_connection()
 
-    row = connection.execute(
-        """
-        SELECT original_name,
-               encryption_version
-        FROM pro_vault_files
-        WHERE id = %s
-        AND username = %s
-        """,
-        (
-            file_id,
-            session.get("username")
-        )
-    ).fetchone()
-
-    if not row:
-
-        connection.close()
-
-        return {
-            "message": "File not found."
-        }, 404
-
-    if row[1] == 2:
-
-        connection.close()
-
-        return {
-            "message": "File is already migrated."
-        }, 400
-
     try:
+
+        row = connection.execute(
+            """
+            SELECT
+                original_name,
+                encryption_version
+            FROM pro_vault_files
+            WHERE id = %s
+            AND username = %s
+            """,
+            (
+                file_id,
+                session.get("username")
+            )
+        ).fetchone()
+
+        if not row:
+
+            return {
+                "message": "File not found."
+            }, 404
+
+        if row[1] == 2:
+
+            return {
+                "message": "File is already migrated."
+            }, 400
+
+        new_stored_name = (
+            secrets.token_hex(16)
+            + ".vault"
+        )
 
         connection.execute(
             """
             UPDATE pro_vault_files
-            SET file_data = %s,
+            SET
+                file_data = %s,
                 encryption_version = 2,
                 stored_name = %s
             WHERE id = %s
@@ -2041,7 +1992,7 @@ def pro_vault_migrate(file_id):
             """,
             (
                 encrypted_data,
-                secrets.token_hex(16) + ".vault",
+                new_stored_name,
                 file_id,
                 session.get("username")
             )
@@ -2058,13 +2009,13 @@ def pro_vault_migrate(file_id):
             f"{type(e).__name__}: {e}"
         )
 
-        connection.close()
-
         return {
             "message": "Unable to migrate file."
         }, 500
 
-    connection.close()
+    finally:
+
+        connection.close()
 
     return {
         "message": "File migrated successfully.",
@@ -2088,24 +2039,40 @@ def pro_vault_forgot():
             url_for("login")
         )
 
+    username = session.get(
+        "username"
+    )
+
     if request.method == "POST":
 
-        username = session.get(
-            "username"
-        )
+        entered_email = request.form.get(
+            "email",
+            ""
+        ).strip().lower()
+
+        if not entered_email:
+
+            return render_template(
+                "pro_vault_forgot.html",
+                error="Enter your registered email address."
+            )
 
         connection = get_connection()
 
-        user = connection.execute(
-            """
-            SELECT email
-            FROM users
-            WHERE username = %s
-            """,
-            (username,)
-        ).fetchone()
+        try:
 
-        connection.close()
+            user = connection.execute(
+                """
+                SELECT email
+                FROM users
+                WHERE username = %s
+                """,
+                (username,)
+            ).fetchone()
+
+        finally:
+
+            connection.close()
 
         if not user or not user[0]:
 
@@ -2117,9 +2084,23 @@ def pro_vault_forgot():
                 )
             )
 
+        registered_email = (
+            user[0].strip().lower()
+        )
+
+        if entered_email != registered_email:
+
+            return render_template(
+                "pro_vault_forgot.html",
+                error=(
+                    "The email address does not match "
+                    "the registered account email."
+                )
+            )
+
         sent, message = generate_and_send_otp(
             username,
-            user[0]
+            registered_email
         )
 
         if not sent:
@@ -2132,7 +2113,9 @@ def pro_vault_forgot():
         session["vault_reset_pending"] = True
 
         return redirect(
-            url_for("pro_vault_forgot_otp")
+            url_for(
+                "pro_vault_forgot_otp"
+            )
         )
 
     return render_template(
@@ -2191,11 +2174,12 @@ def pro_vault_forgot_otp():
 
             otp_row = connection.execute(
                 """
-                SELECT id,
-                       otp_hash,
-                       expires_at,
-                       attempts,
-                       used
+                SELECT
+                    id,
+                    otp_hash,
+                    expires_at,
+                    attempts,
+                    used
                 FROM otp_codes
                 WHERE username = %s
                 ORDER BY created_at DESC
@@ -2225,7 +2209,8 @@ def pro_vault_forgot_otp():
                 return render_template(
                     "pro_vault_forgot_otp.html",
                     error=(
-                        "This OTP has already been used."
+                        "This OTP has already been used. "
+                        "Please request a new OTP."
                     )
                 )
 
@@ -2244,7 +2229,10 @@ def pro_vault_forgot_otp():
 
                 return render_template(
                     "pro_vault_forgot_otp.html",
-                    error="OTP expired."
+                    error=(
+                        "OTP expired. "
+                        "Please request a new OTP."
+                    )
                 )
 
             if attempts >= 3:
@@ -2263,7 +2251,8 @@ def pro_vault_forgot_otp():
                 return render_template(
                     "pro_vault_forgot_otp.html",
                     error=(
-                        "Maximum OTP attempts exceeded."
+                        "Maximum OTP attempts exceeded. "
+                        "Please request a new OTP."
                     )
                 )
 
@@ -2314,7 +2303,10 @@ def pro_vault_forgot_otp():
 
             return render_template(
                 "pro_vault_forgot_otp.html",
-                error="An internal error occurred."
+                error=(
+                    "An internal error occurred. "
+                    "Please try again."
+                )
             )
 
         finally:
@@ -2361,6 +2353,10 @@ def pro_vault_reset():
             url_for("pro_vault")
         )
 
+    username = session.get(
+        "username"
+    )
+
     if request.method == "POST":
 
         new_password = request.form.get(
@@ -2390,14 +2386,11 @@ def pro_vault_reset():
                 error="Passwords do not match."
             )
 
-        username = session.get(
-            "username"
-        )
-
         try:
 
-            # The VEK does not change.
-            # Therefore version-2 files remain decryptable.
+            # IMPORTANT:
+            # This changes only the password hash.
+            # recovery_data and the vault key remain unchanged.
             set_vault_password(
                 username,
                 new_password
@@ -2480,7 +2473,9 @@ def pro_vault_download(file_id):
         file_data[1]
     )
 
-    encryption_version = file_data[2] or 1
+    encryption_version = (
+        file_data[2] or 1
+    )
 
     response = make_response(
         encrypted_data
@@ -2500,7 +2495,9 @@ def pro_vault_download(file_id):
 
     response.headers[
         "X-Encryption-Version"
-    ] = str(encryption_version)
+    ] = str(
+        encryption_version
+    )
 
     response.headers[
         "Cache-Control"
@@ -2540,7 +2537,6 @@ def pro_vault_delete(file_id):
     )
 
     connection.commit()
-
     connection.close()
 
     flash(
@@ -2556,9 +2552,9 @@ def pro_vault_delete(file_id):
 # ENCRYPTION FLOW
 # =========================================================
 
-# =========================================================
-
-@app.route("/encryption-flow")
+@app.route(
+    "/encryption-flow"
+)
 def encryption_flow():
 
     if not login_required():
@@ -2576,7 +2572,9 @@ def encryption_flow():
 # PROTECTED FILE
 # =========================================================
 
-@app.route("/protected-file")
+@app.route(
+    "/protected-file"
+)
 def protected_file():
 
     if not login_required():
@@ -2584,6 +2582,11 @@ def protected_file():
         return redirect(
             url_for("login")
         )
+
+    os.makedirs(
+        "protected_files",
+        exist_ok=True
+    )
 
     if not os.path.exists(
         "protected_files/secret.enc"
@@ -2593,11 +2596,6 @@ def protected_file():
             "protected_file.html",
             error="Protected file not found."
         )
-
-    os.makedirs(
-        "protected_files",
-        exist_ok=True
-    )
 
     temp_file = (
         "protected_files/temp_secret.txt"
@@ -2620,28 +2618,32 @@ def protected_file():
 
         connection = get_connection()
 
-        connection.execute(
-            """
-            INSERT INTO file_access_logs
-            (
-                username,
-                ip_address,
-                filename,
-                timestamp
-            )
-            VALUES (%s, %s, %s, %s)
-            """,
-            (
-                session.get("username"),
-                get_client_ip(),
-                "secret.enc",
-                utc_now()
-            )
-        )
+        try:
 
-        connection.commit()
+            connection.execute(
+                """
+                INSERT INTO file_access_logs
+                (
+                    username,
+                    ip_address,
+                    filename,
+                    timestamp
+                )
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    session.get("username"),
+                    get_client_ip(),
+                    "secret.enc",
+                    utc_now()
+                )
+            )
 
-        connection.close()
+            connection.commit()
+
+        finally:
+
+            connection.close()
 
         return render_template(
             "protected_file.html",
@@ -2657,16 +2659,22 @@ def protected_file():
 
     finally:
 
-        if os.path.exists(temp_file):
+        if os.path.exists(
+            temp_file
+        ):
 
-            os.remove(temp_file)
+            os.remove(
+                temp_file
+            )
 
 
 # =========================================================
 # UPLOAD PAGE
 # =========================================================
 
-@app.route("/upload")
+@app.route(
+    "/upload"
+)
 def upload():
 
     if not login_required():
@@ -2696,7 +2704,9 @@ def upload_file():
             url_for("login")
         )
 
-    file = request.files.get("file")
+    file = request.files.get(
+        "file"
+    )
 
     if not file or not file.filename:
 
@@ -2724,6 +2734,11 @@ def upload_file():
             url_for("upload")
         )
 
+    os.makedirs(
+        "protected_files",
+        exist_ok=True
+    )
+
     temp_input = (
         "protected_files/temp_upload_input"
     )
@@ -2733,11 +2748,6 @@ def upload_file():
     )
 
     try:
-
-        os.makedirs(
-            "protected_files",
-            exist_ok=True
-        )
 
         with open(
             temp_input,
@@ -2758,40 +2768,52 @@ def upload_file():
 
             encrypted_data = file_object.read()
 
-        if os.path.exists(temp_input):
+        if os.path.exists(
+            temp_input
+        ):
 
-            os.remove(temp_input)
+            os.remove(
+                temp_input
+            )
 
-        if os.path.exists(temp_output):
+        if os.path.exists(
+            temp_output
+        ):
 
-            os.remove(temp_output)
+            os.remove(
+                temp_output
+            )
 
         connection = get_connection()
 
-        connection.execute(
-            """
-            INSERT INTO stored_files
-            (
-                username,
-                filename,
-                file_data,
-                file_size,
-                uploaded_at
-            )
-            VALUES (%s, %s, %s, %s, %s)
-            """,
-            (
-                session.get("username"),
-                filename,
-                encrypted_data,
-                len(data),
-                utc_now()
-            )
-        )
+        try:
 
-        connection.commit()
+            connection.execute(
+                """
+                INSERT INTO stored_files
+                (
+                    username,
+                    filename,
+                    file_data,
+                    file_size,
+                    uploaded_at
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (
+                    session.get("username"),
+                    filename,
+                    encrypted_data,
+                    len(data),
+                    utc_now()
+                )
+            )
 
-        connection.close()
+            connection.commit()
+
+        finally:
+
+            connection.close()
 
         flash(
             "File uploaded and encrypted successfully."
@@ -2803,13 +2825,21 @@ def upload_file():
 
     except Exception as e:
 
-        if os.path.exists(temp_input):
+        if os.path.exists(
+            temp_input
+        ):
 
-            os.remove(temp_input)
+            os.remove(
+                temp_input
+            )
 
-        if os.path.exists(temp_output):
+        if os.path.exists(
+            temp_output
+        ):
 
-            os.remove(temp_output)
+            os.remove(
+                temp_output
+            )
 
         flash(
             f"Upload failed: {e}"
@@ -2824,7 +2854,9 @@ def upload_file():
 # MY FILES
 # =========================================================
 
-@app.route("/my-files")
+@app.route(
+    "/my-files"
+)
 def my_files():
 
     if not login_required():
@@ -2837,10 +2869,11 @@ def my_files():
 
     files = connection.execute(
         """
-        SELECT id,
-               filename,
-               file_size,
-               uploaded_at
+        SELECT
+            id,
+            filename,
+            file_size,
+            uploaded_at
         FROM stored_files
         WHERE username = %s
         ORDER BY uploaded_at DESC
@@ -2877,8 +2910,9 @@ def download_file(file_id):
 
     row = connection.execute(
         """
-        SELECT filename,
-               file_data
+        SELECT
+            filename,
+            file_data
         FROM stored_files
         WHERE id = %s
         AND username = %s
@@ -2918,8 +2952,12 @@ def download_file(file_id):
     )
 
     connection.commit()
-
     connection.close()
+
+    os.makedirs(
+        "protected_files",
+        exist_ok=True
+    )
 
     temp_encrypted = (
         "protected_files/temp_download.enc"
@@ -2930,11 +2968,6 @@ def download_file(file_id):
     )
 
     try:
-
-        os.makedirs(
-            "protected_files",
-            exist_ok=True
-        )
 
         with open(
             temp_encrypted,
@@ -2957,8 +2990,21 @@ def download_file(file_id):
 
             data = file_object.read()
 
-        os.remove(temp_encrypted)
-        os.remove(temp_decrypted)
+        if os.path.exists(
+            temp_encrypted
+        ):
+
+            os.remove(
+                temp_encrypted
+            )
+
+        if os.path.exists(
+            temp_decrypted
+        ):
+
+            os.remove(
+                temp_decrypted
+            )
 
         return send_file(
             io.BytesIO(data),
@@ -3021,7 +3067,6 @@ def delete_file(file_id):
     )
 
     connection.commit()
-
     connection.close()
 
     flash(
@@ -3037,7 +3082,9 @@ def delete_file(file_id):
 # FILE ACCESS LOGS
 # =========================================================
 
-@app.route("/file-logs")
+@app.route(
+    "/file-logs"
+)
 def file_logs():
 
     if not login_required():
@@ -3050,10 +3097,11 @@ def file_logs():
 
     logs = connection.execute(
         """
-        SELECT username,
-               ip_address,
-               filename,
-               timestamp
+        SELECT
+            username,
+            ip_address,
+            filename,
+            timestamp
         FROM file_access_logs
         WHERE username = %s
         ORDER BY timestamp DESC
@@ -3144,33 +3192,46 @@ def users():
             password
         )
 
-        connection.execute(
-            """
-            INSERT INTO users
-            (
-                username,
-                password,
-                role,
-                email
-            )
-            VALUES (%s, %s, %s, %s)
-            """,
-            (
-                username,
-                password_hash,
-                "user",
-                email
-            )
-        )
+        try:
 
-        connection.commit()
+            connection.execute(
+                """
+                INSERT INTO users
+                (
+                    username,
+                    password,
+                    role,
+                    email
+                )
+                VALUES (%s, %s, %s, %s)
+                """,
+                (
+                    username,
+                    password_hash,
+                    "user",
+                    email
+                )
+            )
+
+            connection.commit()
+
+        except Exception as e:
+
+            connection.rollback()
+            connection.close()
+
+            return render_template(
+                "users.html",
+                error=f"Unable to create user: {e}"
+            )
 
     users_list = connection.execute(
         """
-        SELECT id,
-               username,
-               email,
-               role
+        SELECT
+            id,
+            username,
+            email,
+            role
         FROM users
         ORDER BY id
         """
@@ -3207,8 +3268,9 @@ def delete_user(user_id):
 
     user = connection.execute(
         """
-        SELECT username,
-               role
+        SELECT
+            username,
+            role
         FROM users
         WHERE id = %s
         """,
@@ -3240,7 +3302,9 @@ def delete_user(user_id):
 # ADMIN FILES
 # =========================================================
 
-@app.route("/admin-files")
+@app.route(
+    "/admin-files"
+)
 def admin_files():
 
     if not login_required():
@@ -3257,11 +3321,12 @@ def admin_files():
 
     files = connection.execute(
         """
-        SELECT id,
-               username,
-               filename,
-               file_size,
-               uploaded_at
+        SELECT
+            id,
+            username,
+            filename,
+            file_size,
+            uploaded_at
         FROM stored_files
         ORDER BY uploaded_at DESC
         """
@@ -3298,9 +3363,10 @@ def admin_download_file(file_id):
 
     row = connection.execute(
         """
-        SELECT username,
-               filename,
-               file_data
+        SELECT
+            username,
+            filename,
+            file_data
         FROM stored_files
         WHERE id = %s
         """,
@@ -3336,8 +3402,12 @@ def admin_download_file(file_id):
     )
 
     connection.commit()
-
     connection.close()
+
+    os.makedirs(
+        "protected_files",
+        exist_ok=True
+    )
 
     temp_encrypted = (
         "protected_files/admin_temp.enc"
@@ -3348,11 +3418,6 @@ def admin_download_file(file_id):
     )
 
     try:
-
-        os.makedirs(
-            "protected_files",
-            exist_ok=True
-        )
 
         with open(
             temp_encrypted,
@@ -3375,13 +3440,21 @@ def admin_download_file(file_id):
 
             data = file_object.read()
 
-        os.remove(
+        if os.path.exists(
             temp_encrypted
-        )
+        ):
 
-        os.remove(
+            os.remove(
+                temp_encrypted
+            )
+
+        if os.path.exists(
             temp_decrypted
-        )
+        ):
+
+            os.remove(
+                temp_decrypted
+            )
 
         return send_file(
             io.BytesIO(data),
@@ -3443,7 +3516,6 @@ def admin_delete_file(file_id):
     )
 
     connection.commit()
-
     connection.close()
 
     return redirect(
@@ -3455,7 +3527,9 @@ def admin_delete_file(file_id):
 # LOGIN LOGS
 # =========================================================
 
-@app.route("/logs")
+@app.route(
+    "/logs"
+)
 def logs():
 
     if not login_required():
@@ -3472,11 +3546,12 @@ def logs():
 
     logs = connection.execute(
         """
-        SELECT id,
-               username,
-               ip_address,
-               timestamp,
-               status
+        SELECT
+            id,
+            username,
+            ip_address,
+            timestamp,
+            status
         FROM login_attempts
         ORDER BY timestamp DESC
         LIMIT 200
@@ -3522,7 +3597,6 @@ def delete_log(log_id):
     )
 
     connection.commit()
-
     connection.close()
 
     flash(
@@ -3538,7 +3612,9 @@ def delete_log(log_id):
 # SECURITY ALERTS
 # =========================================================
 
-@app.route("/alerts")
+@app.route(
+    "/alerts"
+)
 def alerts():
 
     if not login_required():
@@ -3555,9 +3631,10 @@ def alerts():
 
     alerts_list = connection.execute(
         """
-        SELECT ip_address,
-               message,
-               timestamp
+        SELECT
+            ip_address,
+            message,
+            timestamp
         FROM alerts
         ORDER BY timestamp DESC
         LIMIT 100
@@ -3576,7 +3653,9 @@ def alerts():
 # LOGOUT
 # =========================================================
 
-@app.route("/logout")
+@app.route(
+    "/logout"
+)
 def logout():
 
     session.clear()

@@ -2067,6 +2067,10 @@ def admin_delete_file(file_id):
 # LOGIN LOGS
 # =========================================================
 
+# =========================================================
+# LOGIN LOGS
+# =========================================================
+
 @app.route("/logs")
 def logs():
 
@@ -2084,7 +2088,8 @@ def logs():
 
     logs = connection.execute(
         """
-        SELECT username,
+        SELECT id,
+               username,
                ip_address,
                timestamp,
                status
@@ -2101,6 +2106,48 @@ def logs():
         logs=logs
     )
 
+
+# =========================================================
+# DELETE LOGIN LOG
+# =========================================================
+
+@app.route(
+    "/delete-log/<int:log_id>",
+    methods=["POST"]
+)
+def delete_log(log_id):
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if session.get("role") != "admin":
+
+        return "Access denied.", 403
+
+    connection = get_connection()
+
+    connection.execute(
+        """
+        DELETE FROM login_attempts
+        WHERE id = %s
+        """,
+        (log_id,)
+    )
+
+    connection.commit()
+
+    connection.close()
+
+    flash(
+        "Login log deleted successfully."
+    )
+
+    return redirect(
+        url_for("logs")
+    )
 
 # =========================================================
 # SECURITY ALERTS

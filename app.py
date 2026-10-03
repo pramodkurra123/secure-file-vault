@@ -36,21 +36,20 @@ if not app.secret_key:
     raise RuntimeError("FLASK_SECRET_KEY is not set.")
 
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
-
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 
-# ---------------------------------------------------------
+# =========================================================
 # DATABASE INITIALIZATION
-# ---------------------------------------------------------
+# =========================================================
 
 create_database()
 
 
-# ---------------------------------------------------------
+# =========================================================
 # TIME HELPERS
-# ---------------------------------------------------------
+# =========================================================
 
 def utc_now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -72,20 +71,33 @@ def to_ist(value):
 app.jinja_env.filters["ist"] = to_ist
 
 
-# ---------------------------------------------------------
-# EMAIL CONFIGURATION
-# ---------------------------------------------------------
+# =========================================================
+# OTP EMAIL
+# =========================================================
 
 def send_otp_email(email, otp):
 
     smtp_host = os.environ.get("BREVO_SMTP_HOST")
-    smtp_port = int(
-        os.environ.get("BREVO_SMTP_PORT", "2525")
-    )
-    smtp_login = os.environ.get("BREVO_SMTP_LOGIN")
-    smtp_password = os.environ.get("BREVO_SMTP_PASSWORD")
 
-    sender_email = os.environ.get("BREVO_SENDER_EMAIL")
+    smtp_port = int(
+        os.environ.get(
+            "BREVO_SMTP_PORT",
+            "2525"
+        )
+    )
+
+    smtp_login = os.environ.get(
+        "BREVO_SMTP_LOGIN"
+    )
+
+    smtp_password = os.environ.get(
+        "BREVO_SMTP_PASSWORD"
+    )
+
+    sender_email = os.environ.get(
+        "BREVO_SENDER_EMAIL"
+    )
+
     sender_name = os.environ.get(
         "BREVO_SENDER_NAME",
         "Secure File Vault"
@@ -97,13 +109,21 @@ def send_otp_email(email, otp):
         smtp_password,
         sender_email
     ]):
+
         print("BREVO SMTP SETTINGS ARE MISSING")
+
         return False
 
     message = EmailMessage()
 
-    message["Subject"] = "Secure File Vault - OTP"
-    message["From"] = f"{sender_name} <{sender_email}>"
+    message["Subject"] = (
+        "Secure File Vault - OTP"
+    )
+
+    message["From"] = (
+        f"{sender_name} <{sender_email}>"
+    )
+
     message["To"] = email
 
     message.set_content(
@@ -141,17 +161,23 @@ Secure File Vault
 
             server.send_message(message)
 
-        print(f"OTP EMAIL SENT TO {email}")
+        print(
+            f"OTP EMAIL SENT TO {email}"
+        )
 
         return True
 
     except smtplib.SMTPAuthenticationError as e:
 
-        print(f"OTP SMTP AUTH ERROR: {e}")
+        print(
+            f"OTP SMTP AUTH ERROR: {e}"
+        )
 
     except smtplib.SMTPException as e:
 
-        print(f"OTP SMTP ERROR: {e}")
+        print(
+            f"OTP SMTP ERROR: {e}"
+        )
 
     except Exception as e:
 
@@ -163,9 +189,9 @@ Secure File Vault
     return False
 
 
-# ---------------------------------------------------------
+# =========================================================
 # SECURITY ALERT EMAIL
-# ---------------------------------------------------------
+# =========================================================
 
 def send_security_alert_email(
     ip_address,
@@ -173,7 +199,9 @@ def send_security_alert_email(
     timestamp
 ):
 
-    smtp_host = os.environ.get("BREVO_SMTP_HOST")
+    smtp_host = os.environ.get(
+        "BREVO_SMTP_HOST"
+    )
 
     smtp_port = int(
         os.environ.get(
@@ -302,9 +330,9 @@ Secure File Vault
     return False
 
 
-# ---------------------------------------------------------
+# =========================================================
 # OTP GENERATION
-# ---------------------------------------------------------
+# =========================================================
 
 def generate_and_send_otp(username, email):
 
@@ -420,13 +448,22 @@ def generate_and_send_otp(username, email):
     return True, "OTP sent successfully."
 
 
-# ---------------------------------------------------------
-# LOGIN
-# ---------------------------------------------------------
+# =========================================================
+# HOME
+# =========================================================
+
 @app.route("/")
 def home():
-    return redirect(url_for("login"))
-    
+
+    return redirect(
+        url_for("login")
+    )
+
+
+# =========================================================
+# LOGIN
+# =========================================================
+
 @app.route(
     "/login",
     methods=["GET", "POST"]
@@ -445,14 +482,13 @@ def login():
             ""
         )
 
-        ip_address = (
-            request.headers.get(
-                "X-Forwarded-For",
-                request.remote_addr
-            )
+        ip_address = request.headers.get(
+            "X-Forwarded-For",
+            request.remote_addr
         )
 
         if "," in ip_address:
+
             ip_address = (
                 ip_address.split(",")[0]
                 .strip()
@@ -462,7 +498,11 @@ def login():
 
         user = connection.execute(
             """
-            SELECT id, username, password, role, email
+            SELECT id,
+                   username,
+                   password,
+                   role,
+                   email
             FROM users
             WHERE username = %s
             """,
@@ -503,15 +543,10 @@ def login():
                 error="Invalid username or password"
             )
 
-        user_id = user[0]
         db_username = user[1]
         password_hash = user[2]
         role = user[3]
         email = user[4]
-
-        # -------------------------------------------------
-        # CHECK PASSWORD
-        # -------------------------------------------------
 
         password_valid = check_password_hash(
             password_hash,
@@ -519,8 +554,7 @@ def login():
         )
 
         # -------------------------------------------------
-        # ADMIN FAILED LOGIN
-        # ADMIN IS NEVER BLOCKED
+        # ADMIN LOGIN
         # -------------------------------------------------
 
         if role == "admin":
@@ -555,11 +589,11 @@ def login():
                     error="Invalid username or password"
                 )
 
-        else:
+        # -------------------------------------------------
+        # NORMAL USER LOGIN
+        # -------------------------------------------------
 
-            # ---------------------------------------------
-            # CHECK EXISTING IP BLOCK
-            # ---------------------------------------------
+        else:
 
             failed_count = connection.execute(
                 """
@@ -577,6 +611,8 @@ def login():
                 )
             ).fetchone()[0]
 
+            # Existing block
+
             if failed_count >= 3:
 
                 connection.close()
@@ -589,9 +625,7 @@ def login():
                     )
                 )
 
-            # ---------------------------------------------
-            # INVALID PASSWORD
-            # ---------------------------------------------
+            # Wrong password
 
             if not password_valid:
 
@@ -617,6 +651,8 @@ def login():
                 )
 
                 failed_count += 1
+
+                # Third failed attempt
 
                 if failed_count == 3:
 
@@ -728,23 +764,22 @@ def login():
             db_username
         )
 
-        session["pending_ip"] = ip_address
+        session["pending_ip"] = (
+            ip_address
+        )
 
         return redirect(
             url_for("verify_otp")
         )
-
-    # IMPORTANT:
-    # This return fixes the previous 500 error.
 
     return render_template(
         "login.html"
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # VERIFY OTP
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route(
     "/verify-otp",
@@ -803,7 +838,10 @@ def verify_otp():
 
             return render_template(
                 "otp.html",
-                error="No OTP found. Please request a new OTP."
+                error=(
+                    "No OTP found. "
+                    "Please request a new OTP."
+                )
             )
 
         otp_id = otp_row[0]
@@ -912,15 +950,20 @@ def verify_otp():
             request.remote_addr
         )
 
+        # FIXED POSTGRESQL UPDATE
         connection.execute(
             """
             UPDATE login_attempts
             SET status = 'SUCCESS'
-            WHERE username = %s
-            AND ip_address = %s
-            AND status = 'OTP_PENDING'
-            ORDER BY timestamp DESC
-            LIMIT 1
+            WHERE id = (
+                SELECT id
+                FROM login_attempts
+                WHERE username = %s
+                AND ip_address = %s
+                AND status = 'OTP_PENDING'
+                ORDER BY timestamp DESC
+                LIMIT 1
+            )
             """,
             (
                 username,
@@ -930,12 +973,25 @@ def verify_otp():
 
         user = connection.execute(
             """
-            SELECT username, role
+            SELECT username,
+                   role
             FROM users
             WHERE username = %s
             """,
             (username,)
         ).fetchone()
+
+        if user is None:
+
+            connection.rollback()
+
+            connection.close()
+
+            session.clear()
+
+            return redirect(
+                url_for("login")
+            )
 
         connection.commit()
 
@@ -955,9 +1011,9 @@ def verify_otp():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # RESEND OTP
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route(
     "/resend-otp",
@@ -1016,22 +1072,18 @@ def resend_otp():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # LOGIN REQUIRED
-# ---------------------------------------------------------
+# =========================================================
 
 def login_required():
 
-    if "username" not in session:
-
-        return False
-
-    return True
+    return "username" in session
 
 
-# ---------------------------------------------------------
+# =========================================================
 # DASHBOARD
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/dashboard")
 def dashboard():
@@ -1049,9 +1101,9 @@ def dashboard():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # ENCRYPTION FLOW
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/encryption-flow")
 def encryption_flow():
@@ -1067,9 +1119,9 @@ def encryption_flow():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # PROTECTED FILE
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/protected-file")
 def protected_file():
@@ -1157,9 +1209,9 @@ def protected_file():
             os.remove(temp_file)
 
 
-# ---------------------------------------------------------
-# FILE UPLOAD PAGE
-# ---------------------------------------------------------
+# =========================================================
+# UPLOAD PAGE
+# =========================================================
 
 @app.route("/upload")
 def upload():
@@ -1175,9 +1227,9 @@ def upload():
     )
 
 
-# ---------------------------------------------------------
-# FILE UPLOAD
-# ---------------------------------------------------------
+# =========================================================
+# UPLOAD FILE
+# =========================================================
 
 @app.route(
     "/upload-file",
@@ -1217,15 +1269,15 @@ def upload_file():
             url_for("upload")
         )
 
+    temp_input = (
+        "protected_files/temp_upload_input"
+    )
+
+    temp_output = (
+        "protected_files/temp_upload_encrypted"
+    )
+
     try:
-
-        temp_input = (
-            "protected_files/temp_upload_input"
-        )
-
-        temp_output = (
-            "protected_files/temp_upload_encrypted"
-        )
 
         os.makedirs(
             "protected_files",
@@ -1235,9 +1287,9 @@ def upload_file():
         with open(
             temp_input,
             "wb"
-        ) as f:
+        ) as file_object:
 
-            f.write(data)
+            file_object.write(data)
 
         encrypt_file(
             temp_input,
@@ -1247,12 +1299,17 @@ def upload_file():
         with open(
             temp_output,
             "rb"
-        ) as f:
+        ) as file_object:
 
-            encrypted_data = f.read()
+            encrypted_data = file_object.read()
 
-        os.remove(temp_input)
-        os.remove(temp_output)
+        if os.path.exists(temp_input):
+
+            os.remove(temp_input)
+
+        if os.path.exists(temp_output):
+
+            os.remove(temp_output)
 
         connection = get_connection()
 
@@ -1308,9 +1365,9 @@ def upload_file():
         )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # MY FILES
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/my-files")
 def my_files():
@@ -1344,9 +1401,9 @@ def my_files():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # DOWNLOAD USER FILE
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route(
     "/download-file/<int:file_id>"
@@ -1407,19 +1464,15 @@ def download_file(file_id):
 
     connection.close()
 
+    temp_encrypted = (
+        "protected_files/temp_download.enc"
+    )
+
+    temp_decrypted = (
+        "protected_files/temp_download"
+    )
+
     try:
-
-        cipher_file = io.BytesIO(
-            encrypted_data
-        )
-
-        temp_encrypted = (
-            "protected_files/temp_download.enc"
-        )
-
-        temp_decrypted = (
-            "protected_files/temp_download"
-        )
 
         os.makedirs(
             "protected_files",
@@ -1429,9 +1482,9 @@ def download_file(file_id):
         with open(
             temp_encrypted,
             "wb"
-        ) as f:
+        ) as file_object:
 
-            f.write(encrypted_data)
+            file_object.write(encrypted_data)
 
         decrypt_file(
             temp_encrypted,
@@ -1441,9 +1494,9 @@ def download_file(file_id):
         with open(
             temp_decrypted,
             "rb"
-        ) as f:
+        ) as file_object:
 
-            data = f.read()
+            data = file_object.read()
 
         os.remove(temp_encrypted)
         os.remove(temp_decrypted)
@@ -1456,12 +1509,20 @@ def download_file(file_id):
 
     except Exception as e:
 
+        if os.path.exists(temp_encrypted):
+
+            os.remove(temp_encrypted)
+
+        if os.path.exists(temp_decrypted):
+
+            os.remove(temp_decrypted)
+
         return f"Download failed: {e}", 500
 
 
-# ---------------------------------------------------------
+# =========================================================
 # DELETE USER FILE
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route(
     "/delete-file/<int:file_id>"
@@ -1492,16 +1553,18 @@ def delete_file(file_id):
 
     connection.close()
 
-    flash("File deleted successfully.")
+    flash(
+        "File deleted successfully."
+    )
 
     return redirect(
         url_for("my_files")
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # FILE ACCESS LOGS
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/file-logs")
 def file_logs():
@@ -1535,9 +1598,9 @@ def file_logs():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # USERS
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route(
     "/users",
@@ -1648,9 +1711,9 @@ def users():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # DELETE USER
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route(
     "/delete-user/<int:user_id>"
@@ -1671,7 +1734,8 @@ def delete_user(user_id):
 
     user = connection.execute(
         """
-        SELECT username, role
+        SELECT username,
+               role
         FROM users
         WHERE id = %s
         """,
@@ -1699,9 +1763,9 @@ def delete_user(user_id):
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # ADMIN FILES
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/admin-files")
 def admin_files():
@@ -1738,9 +1802,9 @@ def admin_files():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # ADMIN DOWNLOAD
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route(
     "/admin-download-file/<int:file_id>"
@@ -1776,7 +1840,6 @@ def admin_download_file(file_id):
 
         return "File not found.", 404
 
-    username = row[0]
     filename = row[1]
     encrypted_data = row[2]
 
@@ -1803,15 +1866,15 @@ def admin_download_file(file_id):
 
     connection.close()
 
+    temp_encrypted = (
+        "protected_files/admin_temp.enc"
+    )
+
+    temp_decrypted = (
+        "protected_files/admin_temp"
+    )
+
     try:
-
-        temp_encrypted = (
-            "protected_files/admin_temp.enc"
-        )
-
-        temp_decrypted = (
-            "protected_files/admin_temp"
-        )
 
         os.makedirs(
             "protected_files",
@@ -1821,9 +1884,9 @@ def admin_download_file(file_id):
         with open(
             temp_encrypted,
             "wb"
-        ) as f:
+        ) as file_object:
 
-            f.write(encrypted_data)
+            file_object.write(encrypted_data)
 
         decrypt_file(
             temp_encrypted,
@@ -1833,9 +1896,9 @@ def admin_download_file(file_id):
         with open(
             temp_decrypted,
             "rb"
-        ) as f:
+        ) as file_object:
 
-            data = f.read()
+            data = file_object.read()
 
         os.remove(temp_encrypted)
         os.remove(temp_decrypted)
@@ -1848,12 +1911,20 @@ def admin_download_file(file_id):
 
     except Exception as e:
 
+        if os.path.exists(temp_encrypted):
+
+            os.remove(temp_encrypted)
+
+        if os.path.exists(temp_decrypted):
+
+            os.remove(temp_decrypted)
+
         return f"Download failed: {e}", 500
 
 
-# ---------------------------------------------------------
+# =========================================================
 # ADMIN DELETE FILE
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route(
     "/admin-delete-file/<int:file_id>"
@@ -1889,9 +1960,9 @@ def admin_delete_file(file_id):
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # LOGIN LOGS
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/logs")
 def logs():
@@ -1928,9 +1999,9 @@ def logs():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # SECURITY ALERTS
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/alerts")
 def alerts():
@@ -1966,9 +2037,9 @@ def alerts():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # LOGOUT
-# ---------------------------------------------------------
+# =========================================================
 
 @app.route("/logout")
 def logout():
@@ -1980,9 +2051,9 @@ def logout():
     )
 
 
-# ---------------------------------------------------------
+# =========================================================
 # RUN
-# ---------------------------------------------------------
+# =========================================================
 
 if __name__ == "__main__":
 

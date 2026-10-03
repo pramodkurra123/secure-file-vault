@@ -1781,6 +1781,89 @@ def pro_vault_unlock():
         return {
             "message": "Unable to unlock Pro Vault."
         }, 500
+@app.route("/pro-vault-download-unlock", methods=["POST"])
+def pro_vault_download_unlock():
+
+    if not login_required():
+        return {
+            "message": "Authentication required."
+        }, 401
+
+    username = session.get("username")
+
+    password = request.form.get(
+        "vault_password",
+        ""
+    ).strip()
+
+    if not password:
+        return {
+            "message": "Enter your Pro Vault password."
+        }, 400
+
+    try:
+
+        if not vault_password_is_set(username):
+
+            return {
+                "message": "Pro Vault password is not set."
+            }, 400
+
+        if not verify_vault_password(
+            username,
+            password
+        ):
+
+            session["vault_unlocked"] = False
+
+            return {
+                "message": "Incorrect Pro Vault password."
+            }, 401
+
+        vault_key = get_vault_key(username)
+
+        if not vault_key:
+
+            session["vault_unlocked"] = False
+
+            return {
+                "message": "Unable to access the vault key."
+            }, 500
+
+        session["vault_unlocked"] = True
+
+        return {
+            "message": "Pro Vault unlocked for download.",
+            "vault_key": vault_key.hex()
+        }, 200
+
+    except Exception as error:
+
+        session["vault_unlocked"] = False
+
+        print(
+            "PRO VAULT DOWNLOAD UNLOCK ERROR:",
+            error
+        )
+
+        return {
+            "message": "Unable to unlock Pro Vault for download."
+        }, 500
+
+
+@app.route("/pro-vault-lock", methods=["POST"])
+def pro_vault_lock():
+
+    if not login_required():
+        return {
+            "message": "Authentication required."
+        }, 401
+
+    session["vault_unlocked"] = False
+
+    return {
+        "message": "Pro Vault locked."
+    }, 200
 
 
 # =========================================================
@@ -2001,10 +2084,11 @@ def pro_vault_upload():
         f"Username: {session.get('username')} | "
         f"File: {stored_name}"
     )
-
+    session["vault_unlocked"] = False
     return {
         "message": (
-            "Encrypted file uploaded successfully."
+            "Encrypted file uploaded successfully. "
+            "Pro Vault is now locked."
         )
     }, 200
 

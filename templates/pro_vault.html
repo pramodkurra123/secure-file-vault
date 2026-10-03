@@ -470,6 +470,13 @@
             font-size: 11px;
         }
 
+        .file-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
         .download-button {
             border: 1px solid #334155;
             border-radius: 7px;
@@ -493,6 +500,37 @@
             color: white;
             box-shadow:
                 0 0 16px rgba(124, 58, 237, 0.15);
+        }
+
+        .delete-button {
+            border: 1px solid #7f1d1d;
+            border-radius: 7px;
+            padding: 9px 13px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #7f1d1d,
+                    #991b1b
+                );
+            color: #fecaca;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: 0.2s;
+        }
+
+        .delete-button:hover {
+            border-color: #ef4444;
+            background:
+                linear-gradient(
+                    135deg,
+                    #991b1b,
+                    #b91c1c
+                );
+            color: white;
+            box-shadow:
+                0 0 16px rgba(239, 68, 68, 0.15);
         }
 
         .empty {
@@ -557,7 +595,13 @@
                 align-items: stretch;
             }
 
-            .download-button {
+            .file-actions {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .download-button,
+            .delete-button {
                 width: 100%;
             }
 
@@ -931,14 +975,35 @@
                         </div>
 
 
-                        <button
-                            type="button"
-                            class="download-button"
-                            data-file-id="{{ file[0] }}"
-                            data-file-name="{{ file[1]|e }}"
-                        >
-                            🔓 Download & Decrypt
-                        </button>
+                        <div class="file-actions">
+
+                            <button
+                                type="button"
+                                class="download-button"
+                                data-file-id="{{ file[0] }}"
+                                data-file-name="{{ file[1]|e }}"
+                            >
+                                🔓 Download & Decrypt
+                            </button>
+
+
+                            <form
+                                action="/pro-vault-delete/{{ file[0] }}"
+                                method="POST"
+                                style="display:inline;"
+                                onsubmit="return confirm('Are you sure you want to delete this encrypted file? This action cannot be undone.');"
+                            >
+
+                                <button
+                                    type="submit"
+                                    class="delete-button"
+                                >
+                                    🗑️ Delete
+                                </button>
+
+                            </form>
+
+                        </div>
 
                     </div>
 

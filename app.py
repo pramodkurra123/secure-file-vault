@@ -72,12 +72,40 @@ app.jinja_env.filters["ist"] = to_ist
 
 
 # =========================================================
+# CLIENT IP
+# =========================================================
+
+def get_client_ip():
+
+    forwarded_for = request.headers.get(
+        "X-Forwarded-For"
+    )
+
+    if forwarded_for:
+        ip = forwarded_for.split(",")[0].strip()
+
+        if ip:
+            return ip
+
+    real_ip = request.headers.get(
+        "X-Real-IP"
+    )
+
+    if real_ip:
+        return real_ip.strip()
+
+    return request.remote_addr or "UNKNOWN"
+
+
+# =========================================================
 # OTP EMAIL
 # =========================================================
 
 def send_otp_email(email, otp):
 
-    smtp_host = os.environ.get("BREVO_SMTP_HOST")
+    smtp_host = os.environ.get(
+        "BREVO_SMTP_HOST"
+    )
 
     smtp_port = int(
         os.environ.get(
@@ -482,17 +510,13 @@ def login():
             ""
         )
 
-        ip_address = request.headers.get(
-            "X-Forwarded-For",
-            request.remote_addr
+        ip_address = get_client_ip()
+
+        print(
+            f"LOGIN REQUEST | "
+            f"Username: {username} | "
+            f"IP: {ip_address}"
         )
-
-        if "," in ip_address:
-
-            ip_address = (
-                ip_address.split(",")[0]
-                .strip()
-            )
 
         connection = get_connection()
 
@@ -515,6 +539,8 @@ def login():
 
         if user is None:
 
+            now = utc_now()
+
             connection.execute(
                 """
                 INSERT INTO login_attempts
@@ -529,12 +555,18 @@ def login():
                 (
                     username,
                     ip_address,
-                    utc_now(),
+                    now,
                     "FAILED"
                 )
             )
 
             connection.commit()
+
+            print(
+                f"FAILED LOGIN | "
+                f"Unknown user | "
+                f"IP: {ip_address}"
+            )
 
             connection.close()
 
@@ -561,6 +593,8 @@ def login():
 
             if not password_valid:
 
+                now = utc_now()
+
                 connection.execute(
                     """
                     INSERT INTO login_attempts
@@ -575,12 +609,18 @@ def login():
                     (
                         db_username,
                         ip_address,
-                        utc_now(),
+                        now,
                         "FAILED"
                     )
                 )
 
                 connection.commit()
+
+                print(
+                    f"ADMIN FAILED LOGIN | "
+                    f"Username: {db_username} | "
+                    f"IP: {ip_address}"
+                )
 
                 connection.close()
 
@@ -595,6 +635,8 @@ def login():
 
         else:
 
+            now = utc_now()
+
             failed_count = connection.execute(
                 """
                 SELECT COUNT(*)
@@ -605,15 +647,25 @@ def login():
                 """,
                 (
                     ip_address,
-                    utc_now() - timedelta(
-                        minutes=5
-                    )
+                    now - timedelta(minutes=5)
                 )
             ).fetchone()[0]
+
+            print(
+                f"FAILED LOGIN COUNT BEFORE CHECK | "
+                f"IP: {ip_address} | "
+                f"Count: {failed_count}"
+            )
 
             # Existing block
 
             if failed_count >= 3:
+
+                print(
+                    f"IP BLOCKED | "
+                    f"IP: {ip_address} | "
+                    f"Existing failed count: {failed_count}"
+                )
 
                 connection.close()
 
@@ -628,8 +680,6 @@ def login():
             # Wrong password
 
             if not password_valid:
-
-                now = utc_now()
 
                 connection.execute(
                     """
@@ -652,9 +702,18 @@ def login():
 
                 failed_count += 1
 
+                connection.commit()
+
+                print(
+                    f"FAILED LOGIN | "
+                    f"Username: {db_username} | "
+                    f"IP: {ip_address} | "
+                    f"Count: {failed_count}"
+                )
+
                 # Third failed attempt
 
-                if failed_count == 3:
+                if failed_count >= 3:
 
                     alert_message = (
                         "Three failed login attempts "
@@ -682,11 +741,32 @@ def login():
 
                     connection.close()
 
-                    send_security_alert_email(
-                        ip_address,
-                        alert_message,
-                        now
+                    print(
+                        f"SECURITY ALERT CREATED | "
+                        f"IP: {ip_address}"
                     )
+
+                    email_sent = (
+                        send_security_alert_email(
+                            ip_address,
+                            alert_message,
+                            now
+                        )
+                    )
+
+                    if email_sent:
+
+                        print(
+                            f"SECURITY ALERT EMAIL "
+                            f"SUCCESS | IP: {ip_address}"
+                        )
+
+                    else:
+
+                        print(
+                            f"SECURITY ALERT EMAIL "
+                            f"FAILED | IP: {ip_address}"
+                        )
 
                     return render_template(
                         "login.html",
@@ -696,8 +776,6 @@ def login():
                             "for 5 minutes."
                         )
                     )
-
-                connection.commit()
 
                 connection.close()
 
@@ -768,6 +846,13 @@ def login():
             ip_address
         )
 
+        print(
+            f"PASSWORD VERIFIED | "
+            f"OTP SENT | "
+            f"Username: {db_username} | "
+            f"IP: {ip_address}"
+        )
+
         return redirect(
             url_for("verify_otp")
         )
@@ -816,186 +901,204 @@ def verify_otp():
 
         connection = get_connection()
 
-        otp_row = connection.execute(
-            """
-            SELECT id,
-                   otp_hash,
-                   created_at,
-                   expires_at,
-                   attempts,
-                   used
-            FROM otp_codes
-            WHERE username = %s
-            ORDER BY created_at DESC
-            LIMIT 1
-            """,
-            (username,)
-        ).fetchone()
+        try:
 
-        if otp_row is None:
-
-            connection.close()
-
-            return render_template(
-                "otp.html",
-                error=(
-                    "No OTP found. "
-                    "Please request a new OTP."
-                )
-            )
-
-        otp_id = otp_row[0]
-        otp_hash = otp_row[1]
-        expires_at = otp_row[3]
-        attempts = otp_row[4]
-        used = otp_row[5]
-
-        if used:
-
-            connection.close()
-
-            return render_template(
-                "otp.html",
-                error=(
-                    "This OTP has already been used. "
-                    "Please request a new OTP."
-                )
-            )
-
-        if utc_now() > expires_at:
-
-            connection.execute(
+            otp_row = connection.execute(
                 """
-                UPDATE otp_codes
-                SET used = TRUE
-                WHERE id = %s
-                """,
-                (otp_id,)
-            )
-
-            connection.commit()
-
-            connection.close()
-
-            return render_template(
-                "otp.html",
-                error=(
-                    "OTP expired. "
-                    "Please request a new OTP."
-                )
-            )
-
-        if attempts >= 3:
-
-            connection.execute(
-                """
-                UPDATE otp_codes
-                SET used = TRUE
-                WHERE id = %s
-                """,
-                (otp_id,)
-            )
-
-            connection.commit()
-
-            connection.close()
-
-            return render_template(
-                "otp.html",
-                error=(
-                    "Maximum OTP attempts exceeded. "
-                    "Please request a new OTP."
-                )
-            )
-
-        entered_hash = hashlib.sha256(
-            entered_otp.encode()
-        ).hexdigest()
-
-        if entered_hash != otp_hash:
-
-            connection.execute(
-                """
-                UPDATE otp_codes
-                SET attempts = attempts + 1
-                WHERE id = %s
-                """,
-                (otp_id,)
-            )
-
-            connection.commit()
-
-            connection.close()
-
-            return render_template(
-                "otp.html",
-                error="Invalid OTP."
-            )
-
-        # -------------------------------------------------
-        # OTP SUCCESS
-        # -------------------------------------------------
-
-        connection.execute(
-            """
-            UPDATE otp_codes
-            SET used = TRUE
-            WHERE id = %s
-            """,
-            (otp_id,)
-        )
-
-        ip_address = session.get(
-            "pending_ip",
-            request.remote_addr
-        )
-
-        # FIXED POSTGRESQL UPDATE
-        connection.execute(
-            """
-            UPDATE login_attempts
-            SET status = 'SUCCESS'
-            WHERE id = (
-                SELECT id
-                FROM login_attempts
+                SELECT id,
+                       otp_hash,
+                       created_at,
+                       expires_at,
+                       attempts,
+                       used
+                FROM otp_codes
                 WHERE username = %s
-                AND ip_address = %s
-                AND status = 'OTP_PENDING'
-                ORDER BY timestamp DESC
+                ORDER BY created_at DESC
                 LIMIT 1
-            )
-            """,
-            (
-                username,
-                ip_address
-            )
-        )
+                """,
+                (username,)
+            ).fetchone()
 
-        user = connection.execute(
-            """
-            SELECT username,
-                   role
-            FROM users
-            WHERE username = %s
-            """,
-            (username,)
-        ).fetchone()
+            if otp_row is None:
 
-        if user is None:
+                return render_template(
+                    "otp.html",
+                    error=(
+                        "No OTP found. "
+                        "Please request a new OTP."
+                    )
+                )
+
+            otp_id = otp_row[0]
+            otp_hash = otp_row[1]
+            expires_at = otp_row[3]
+            attempts = otp_row[4]
+            used = otp_row[5]
+
+            if used:
+
+                return render_template(
+                    "otp.html",
+                    error=(
+                        "This OTP has already been used. "
+                        "Please request a new OTP."
+                    )
+                )
+
+            if utc_now() > expires_at:
+
+                connection.execute(
+                    """
+                    UPDATE otp_codes
+                    SET used = TRUE
+                    WHERE id = %s
+                    """,
+                    (otp_id,)
+                )
+
+                connection.commit()
+
+                return render_template(
+                    "otp.html",
+                    error=(
+                        "OTP expired. "
+                        "Please request a new OTP."
+                    )
+                )
+
+            if attempts >= 3:
+
+                connection.execute(
+                    """
+                    UPDATE otp_codes
+                    SET used = TRUE
+                    WHERE id = %s
+                    """,
+                    (otp_id,)
+                )
+
+                connection.commit()
+
+                return render_template(
+                    "otp.html",
+                    error=(
+                        "Maximum OTP attempts exceeded. "
+                        "Please request a new OTP."
+                    )
+                )
+
+            entered_hash = hashlib.sha256(
+                entered_otp.encode()
+            ).hexdigest()
+
+            if not secrets.compare_digest(
+                entered_hash,
+                otp_hash
+            ):
+
+                connection.execute(
+                    """
+                    UPDATE otp_codes
+                    SET attempts = attempts + 1
+                    WHERE id = %s
+                    """,
+                    (otp_id,)
+                )
+
+                connection.commit()
+
+                return render_template(
+                    "otp.html",
+                    error="Invalid OTP."
+                )
+
+            # -------------------------------------------------
+            # OTP SUCCESS
+            # -------------------------------------------------
+
+            user = connection.execute(
+                """
+                SELECT username,
+                       role
+                FROM users
+                WHERE username = %s
+                """,
+                (username,)
+            ).fetchone()
+
+            if user is None:
+
+                connection.rollback()
+
+                return render_template(
+                    "otp.html",
+                    error=(
+                        "User account was not found."
+                    )
+                )
+
+            connection.execute(
+                """
+                UPDATE otp_codes
+                SET used = TRUE
+                WHERE id = %s
+                """,
+                (otp_id,)
+            )
+
+            ip_address = session.get(
+                "pending_ip",
+                request.remote_addr
+            )
+
+            connection.execute(
+                """
+                UPDATE login_attempts
+                SET status = 'SUCCESS'
+                WHERE id = (
+                    SELECT id
+                    FROM login_attempts
+                    WHERE username = %s
+                    AND ip_address = %s
+                    AND status = 'OTP_PENDING'
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                )
+                """,
+                (
+                    username,
+                    ip_address
+                )
+            )
+
+            connection.commit()
+
+            print(
+                f"OTP LOGIN SUCCESS | "
+                f"Username: {username} | "
+                f"IP: {ip_address}"
+            )
+
+        except Exception as e:
 
             connection.rollback()
 
-            connection.close()
-
-            session.clear()
-
-            return redirect(
-                url_for("login")
+            print(
+                f"OTP VERIFICATION ERROR: "
+                f"{type(e).__name__}: {e}"
             )
 
-        connection.commit()
+            return render_template(
+                "otp.html",
+                error=(
+                    "An internal error occurred. "
+                    "Please try again."
+                )
+            )
 
-        connection.close()
+        finally:
+
+            connection.close()
 
         session.clear()
 
@@ -1180,7 +1283,7 @@ def protected_file():
             """,
             (
                 session.get("username"),
-                request.remote_addr,
+                get_client_ip(),
                 "secret.enc",
                 utc_now()
             )
@@ -1454,7 +1557,7 @@ def download_file(file_id):
         """,
         (
             session.get("username"),
-            request.remote_addr,
+            get_client_ip(),
             filename,
             utc_now()
         )
@@ -1856,7 +1959,7 @@ def admin_download_file(file_id):
         """,
         (
             session.get("username"),
-            request.remote_addr,
+            get_client_ip(),
             filename,
             utc_now()
         )

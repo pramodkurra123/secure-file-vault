@@ -74,10 +74,16 @@ def admin_required():
         and session.get("role") == "admin"
     )
 
+
 def send_otp_email(email, otp):
 
     smtp_host = os.environ.get("BREVO_SMTP_HOST")
-    smtp_port = int(os.environ.get("BREVO_SMTP_PORT", "587"))
+    smtp_port = int(
+        os.environ.get(
+            "BREVO_SMTP_PORT",
+            "2525"
+        )
+    )
     smtp_login = os.environ.get("BREVO_SMTP_LOGIN")
     smtp_password = os.environ.get("BREVO_SMTP_PASSWORD")
     sender_email = os.environ.get("BREVO_SENDER_EMAIL")
@@ -172,33 +178,86 @@ If you did not attempt to log in, you can safely ignore this email.
     except Exception as e:
 
         print(
-            f"BREVO UNKNOWN ERROR: {type(e).__name__}: {e}"
+            f"BREVO UNKNOWN ERROR: "
+            f"{type(e).__name__}: {e}"
         )
 
         raise
-def send_security_alert_email(ip_address, message, timestamp):
+
+
+def send_security_alert_email(
+    ip_address,
+    message,
+    timestamp
+):
 
     smtp_host = os.environ.get("BREVO_SMTP_HOST")
-    smtp_port = int(os.environ.get("BREVO_SMTP_PORT", "2525"))
-    smtp_login = os.environ.get("BREVO_SMTP_LOGIN")
-    smtp_password = os.environ.get("BREVO_SMTP_PASSWORD")
-    sender_email = os.environ.get("BREVO_SENDER_EMAIL")
+
+    smtp_port = int(
+        os.environ.get(
+            "BREVO_SMTP_PORT",
+            "2525"
+        )
+    )
+
+    smtp_login = os.environ.get(
+        "BREVO_SMTP_LOGIN"
+    )
+
+    smtp_password = os.environ.get(
+        "BREVO_SMTP_PASSWORD"
+    )
+
+    sender_email = os.environ.get(
+        "BREVO_SENDER_EMAIL"
+    )
+
     sender_name = os.environ.get(
         "BREVO_SENDER_NAME",
         "Secure File Vault"
     )
 
-    admin_email = os.environ.get("ADMIN_EMAIL")
+    admin_email = os.environ.get(
+        "ADMIN_EMAIL"
+    )
 
     if not admin_email:
         raise RuntimeError(
             "ADMIN_EMAIL environment variable is not set."
         )
 
+    if not smtp_host:
+        raise RuntimeError(
+            "BREVO_SMTP_HOST environment variable is not set."
+        )
+
+    if not smtp_login:
+        raise RuntimeError(
+            "BREVO_SMTP_LOGIN environment variable is not set."
+        )
+
+    if not smtp_password:
+        raise RuntimeError(
+            "BREVO_SMTP_PASSWORD environment variable is not set."
+        )
+
+    if not sender_email:
+        raise RuntimeError(
+            "BREVO_SENDER_EMAIL environment variable is not set."
+        )
+
+    ist_time = to_ist(timestamp)
+
     email = EmailMessage()
 
-    email["Subject"] = "Security Alert - Secure File Vault"
-    email["From"] = f"{sender_name} <{sender_email}>"
+    email["Subject"] = (
+        "Security Alert - Secure File Vault"
+    )
+
+    email["From"] = (
+        f"{sender_name} <{sender_email}>"
+    )
+
     email["To"] = admin_email
 
     email.set_content(
@@ -214,12 +273,13 @@ IP Address:
 {ip_address}
 
 Time:
-{timestamp.strftime("%d-%m-%Y %I:%M:%S %p")} UTC
+{ist_time} IST
 
-The IP address has been temporarily blocked according to
-the configured security policy.
+Action:
+The IP address has been temporarily blocked
+for 5 minutes according to the security policy.
 
-Please review the security logs if necessary.
+Please review the Login Activity Logs if necessary.
 
 Secure File Vault
 """
@@ -243,7 +303,20 @@ Secure File Vault
             server.send_message(email)
 
         print(
-            f"SECURITY ALERT EMAIL SENT TO {admin_email}"
+            f"SECURITY ALERT EMAIL SENT TO "
+            f"{admin_email}"
+        )
+
+    except smtplib.SMTPAuthenticationError as e:
+
+        print(
+            f"SECURITY ALERT SMTP AUTH ERROR: {e}"
+        )
+
+    except smtplib.SMTPException as e:
+
+        print(
+            f"SECURITY ALERT SMTP ERROR: {e}"
         )
 
     except Exception as e:
@@ -252,6 +325,7 @@ Secure File Vault
             f"SECURITY ALERT EMAIL ERROR: "
             f"{type(e).__name__}: {e}"
         )
+
 
 def generate_and_send_otp(username, email):
 
@@ -285,7 +359,6 @@ def generate_and_send_otp(username, email):
             "Please try again after 15 minutes."
         )
 
-
     latest = connection.execute(
         """
         SELECT created_at
@@ -296,7 +369,6 @@ def generate_and_send_otp(username, email):
         """,
         (username,)
     ).fetchone()
-
 
     if latest:
 
@@ -317,13 +389,11 @@ def generate_and_send_otp(username, email):
                 "before requesting another OTP."
             )
 
-
     otp = f"{secrets.randbelow(1000000):06d}"
 
     otp_hash = hashlib.sha256(
         otp.encode()
     ).hexdigest()
-
 
     connection.execute(
         """
@@ -334,7 +404,6 @@ def generate_and_send_otp(username, email):
         """,
         (username,)
     )
-
 
     connection.execute(
         """
@@ -355,7 +424,6 @@ def generate_and_send_otp(username, email):
 
     connection.commit()
     connection.close()
-
 
     try:
 
@@ -384,7 +452,6 @@ def generate_and_send_otp(username, email):
         return False, (
             "Unable to send OTP. Please try again."
         )
-
 
     return True, None
 
@@ -430,7 +497,6 @@ def login():
             now - timedelta(minutes=5)
         )
 
-
         if user and check_password_hash(
             user[1],
             password
@@ -450,23 +516,7 @@ def login():
                     )
                 )
 
-
-            failed_count = connection.execute(
-                """
-                SELECT COUNT(*)
-                FROM login_attempts
-                WHERE ip_address = %s
-                AND status = 'FAILED'
-                AND timestamp >= %s
-                """,
-                (
-                    ip_address,
-                    five_minutes_ago
-                )
-            ).fetchone()[0]
-
             connection.close()
-
 
             success, error = generate_and_send_otp(
                 username,
@@ -480,13 +530,11 @@ def login():
                     error=error
                 )
 
-
             session["otp_pending"] = True
             session["otp_username"] = username
             session["otp_role"] = user[2]
 
             return redirect("/verify-otp")
-
 
         if is_admin:
 
@@ -512,7 +560,6 @@ def login():
                 error="Invalid username or password"
             )
 
-
         failed_count = connection.execute(
             """
             SELECT COUNT(*)
@@ -527,7 +574,6 @@ def login():
             )
         ).fetchone()[0]
 
-
         if failed_count >= 3:
 
             connection.close()
@@ -540,7 +586,6 @@ def login():
                     "Try again after 5 minutes."
                 )
             )
-
 
         connection.execute(
             """
@@ -558,44 +603,49 @@ def login():
 
         failed_count += 1
 
-
         if failed_count == 3:
 
-    alert_message = (
-        "Three failed login attempts detected. "
-        "Further invalid login attempts from this IP "
-        "are temporarily blocked for 5 minutes."
-    )
+            alert_message = (
+                "Three failed login attempts detected. "
+                "Further invalid login attempts from "
+                "this IP are temporarily blocked for "
+                "5 minutes."
+            )
 
-    connection.execute(
-        """
-        INSERT INTO alerts
-        (ip_address, message, timestamp)
-        VALUES (%s, %s, %s)
-        """,
-        (
-            ip_address,
-            alert_message,
-            now
-        )
-    )
+            connection.execute(
+                """
+                INSERT INTO alerts
+                (ip_address, message, timestamp)
+                VALUES (%s, %s, %s)
+                """,
+                (
+                    ip_address,
+                    alert_message,
+                    now
+                )
+            )
 
-    connection.commit()
+            connection.commit()
 
-    try:
+            try:
 
-        send_security_alert_email(
-            ip_address,
-            alert_message,
-            now
-        )
+                send_security_alert_email(
+                    ip_address,
+                    alert_message,
+                    now
+                )
 
-    except Exception as e:
+            except Exception as e:
 
-        print(
-            f"Security alert notification failed: {e}"
-        )
+                print(
+                    f"Security alert notification failed: {e}"
+                )
 
+        else:
+
+            connection.commit()
+
+        connection.close()
 
         if failed_count >= 3:
 
@@ -608,12 +658,10 @@ def login():
                 )
             )
 
-
         return render_template(
             "login.html",
             error="Invalid username or password"
         )
-
 
     return render_template("login.html")
 
@@ -625,14 +673,13 @@ def verify_otp():
 
         return redirect("/login")
 
-
-    username = session.get("otp_username")
-
+    username = session.get(
+        "otp_username"
+    )
 
     if request.method == "POST":
 
         otp = request.form["otp"].strip()
-
 
         if not otp.isdigit() or len(otp) != 6:
 
@@ -641,9 +688,7 @@ def verify_otp():
                 error="Enter a valid 6-digit OTP."
             )
 
-
         connection = get_connection()
-
 
         record = connection.execute(
             """
@@ -657,7 +702,6 @@ def verify_otp():
             (username,)
         ).fetchone()
 
-
         if record is None:
 
             connection.close()
@@ -670,13 +714,11 @@ def verify_otp():
                 )
             )
 
-
         otp_id = record[0]
         otp_hash = record[1]
         expires_at = record[2]
         attempts = record[3]
         used = record[4]
-
 
         if used:
 
@@ -689,7 +731,6 @@ def verify_otp():
                     "Please request a new OTP."
                 )
             )
-
 
         if utc_now() > expires_at:
 
@@ -713,7 +754,6 @@ def verify_otp():
                 )
             )
 
-
         if attempts >= 3:
 
             connection.execute(
@@ -736,11 +776,9 @@ def verify_otp():
                 )
             )
 
-
         entered_hash = hashlib.sha256(
             otp.encode()
         ).hexdigest()
-
 
         if secrets.compare_digest(
             entered_hash,
@@ -756,7 +794,6 @@ def verify_otp():
                 (otp_id,)
             )
 
-
             connection.execute(
                 """
                 INSERT INTO login_attempts
@@ -771,24 +808,21 @@ def verify_otp():
                 )
             )
 
-
             connection.commit()
             connection.close()
 
-
-            role = session.get("otp_role")
+            role = session.get(
+                "otp_role"
+            )
 
             session.clear()
 
             session["username"] = username
             session["role"] = role
 
-
             return redirect("/dashboard")
 
-
         attempts += 1
-
 
         connection.execute(
             """
@@ -802,10 +836,8 @@ def verify_otp():
             )
         )
 
-
         connection.commit()
         connection.close()
-
 
         if attempts >= 3:
 
@@ -817,7 +849,6 @@ def verify_otp():
                 )
             )
 
-
         return render_template(
             "otp.html",
             error=(
@@ -825,7 +856,6 @@ def verify_otp():
                 f"{3 - attempts} attempts remaining."
             )
         )
-
 
     return render_template("otp.html")
 
@@ -837,8 +867,9 @@ def resend_otp():
 
         return redirect("/login")
 
-
-    username = session.get("otp_username")
+    username = session.get(
+        "otp_username"
+    )
 
     connection = get_connection()
 
@@ -853,7 +884,6 @@ def resend_otp():
 
     connection.close()
 
-
     if not user or not user[0]:
 
         session.clear()
@@ -866,12 +896,10 @@ def resend_otp():
             )
         )
 
-
     success, error = generate_and_send_otp(
         username,
         user[0]
     )
-
 
     if not success:
 
@@ -880,10 +908,12 @@ def resend_otp():
             error=error
         )
 
-
     return render_template(
         "otp.html",
-        error="A new OTP has been sent to your email address."
+        error=(
+            "A new OTP has been sent to "
+            "your email address."
+        )
     )
 
 
@@ -929,7 +959,6 @@ def protected_file():
             content="Protected file not found."
         )
 
-
     temp_file = os.path.join(
         "protected_files",
         "temp_secret.txt"
@@ -952,14 +981,15 @@ def protected_file():
 
     except Exception:
 
-        content = "Unable to decrypt protected file."
+        content = (
+            "Unable to decrypt protected file."
+        )
 
     finally:
 
         if os.path.exists(temp_file):
 
             os.remove(temp_file)
-
 
     connection = get_connection()
 
@@ -980,7 +1010,6 @@ def protected_file():
     connection.commit()
     connection.close()
 
-
     return render_template(
         "protected_file.html",
         content=content
@@ -992,7 +1021,6 @@ def file_logs():
 
     if not admin_required():
         return redirect("/dashboard")
-
 
     connection = get_connection()
 
@@ -1007,7 +1035,6 @@ def file_logs():
 
     connection.close()
 
-
     return render_template(
         "file_logs.html",
         logs=logs
@@ -1020,17 +1047,17 @@ def users():
     if not admin_required():
         return redirect("/dashboard")
 
-
     error = None
-
 
     if request.method == "POST":
 
         username = request.form["username"].strip()
         password = request.form["password"]
         email = request.form["email"].strip()
-        role = request.form.get("role", "user")
-
+        role = request.form.get(
+            "role",
+            "user"
+        )
 
         if not username or not password or not email:
 
@@ -1081,7 +1108,6 @@ def users():
 
                 connection.close()
 
-
     connection = get_connection()
 
     user_list = connection.execute(
@@ -1094,12 +1120,13 @@ def users():
 
     connection.close()
 
-
     return render_template(
         "users.html",
         users=user_list,
         error=error,
-        current_username=session.get("username")
+        current_username=session.get(
+            "username"
+        )
     )
 
 
@@ -1109,9 +1136,7 @@ def delete_user(user_id):
     if not admin_required():
         return redirect("/dashboard")
 
-
     connection = get_connection()
-
 
     user = connection.execute(
         """
@@ -1122,7 +1147,6 @@ def delete_user(user_id):
         (user_id,)
     ).fetchone()
 
-
     if user:
 
         username = user[0]
@@ -1131,7 +1155,6 @@ def delete_user(user_id):
         current_username = session.get(
             "username"
         )
-
 
         if (
             username != current_username
@@ -1156,9 +1179,7 @@ def delete_user(user_id):
 
             connection.commit()
 
-
     connection.close()
-
 
     return redirect("/users")
 
@@ -1169,11 +1190,11 @@ def upload():
     if not login_required():
         return redirect("/login")
 
-
     if request.method == "POST":
 
-        file = request.files.get("file")
-
+        file = request.files.get(
+            "file"
+        )
 
         if not file or file.filename == "":
 
@@ -1182,11 +1203,9 @@ def upload():
                 error="Please select a file."
             )
 
-
         filename = secure_filename(
             file.filename
         )
-
 
         if not filename:
 
@@ -1195,9 +1214,7 @@ def upload():
                 error="Invalid filename."
             )
 
-
         file_data = file.read()
-
 
         if len(file_data) > 5 * 1024 * 1024:
 
@@ -1205,7 +1222,6 @@ def upload():
                 "upload.html",
                 error="Maximum file size is 5 MB."
             )
-
 
         fernet_key = os.environ.get(
             "FERNET_KEY"
@@ -1218,7 +1234,6 @@ def upload():
                 error="Encryption key is not configured."
             )
 
-
         cipher = Fernet(
             fernet_key.encode()
         )
@@ -1226,7 +1241,6 @@ def upload():
         encrypted_data = cipher.encrypt(
             file_data
         )
-
 
         connection = get_connection()
 
@@ -1249,11 +1263,11 @@ def upload():
         connection.commit()
         connection.close()
 
-
         return redirect("/my-files")
 
-
-    return render_template("upload.html")
+    return render_template(
+        "upload.html"
+    )
 
 
 @app.route("/my-files")
@@ -1261,7 +1275,6 @@ def my_files():
 
     if not login_required():
         return redirect("/login")
-
 
     connection = get_connection()
 
@@ -1273,11 +1286,12 @@ def my_files():
         WHERE username = %s
         ORDER BY id DESC
         """,
-        (session.get("username"),)
+        (
+            session.get("username"),
+        )
     ).fetchall()
 
     connection.close()
-
 
     return render_template(
         "my_files.html",
@@ -1290,7 +1304,6 @@ def delete_file(file_id):
 
     if not login_required():
         return redirect("/login")
-
 
     connection = get_connection()
 
@@ -1309,7 +1322,6 @@ def delete_file(file_id):
     connection.commit()
     connection.close()
 
-
     return redirect("/my-files")
 
 
@@ -1318,7 +1330,6 @@ def download(file_id):
 
     if not login_required():
         return redirect("/login")
-
 
     connection = get_connection()
 
@@ -1335,13 +1346,14 @@ def download(file_id):
         )
     ).fetchone()
 
-
     if not file_record:
 
         connection.close()
 
-        return "File not found or access denied.", 404
-
+        return (
+            "File not found or access denied.",
+            404
+        )
 
     filename = file_record[0]
     encrypted_data = file_record[1]
@@ -1363,7 +1375,6 @@ def download(file_id):
     connection.commit()
     connection.close()
 
-
     try:
 
         cipher = Fernet(
@@ -1376,8 +1387,10 @@ def download(file_id):
 
     except Exception:
 
-        return "Unable to decrypt file.", 500
-
+        return (
+            "Unable to decrypt file.",
+            500
+        )
 
     return send_file(
         BytesIO(decrypted_data),
@@ -1392,7 +1405,6 @@ def admin_files():
     if not admin_required():
         return redirect("/dashboard")
 
-
     connection = get_connection()
 
     files = connection.execute(
@@ -1406,7 +1418,6 @@ def admin_files():
 
     connection.close()
 
-
     return render_template(
         "admin_files.html",
         files=files
@@ -1419,7 +1430,6 @@ def admin_download(file_id):
     if not admin_required():
         return redirect("/dashboard")
 
-
     connection = get_connection()
 
     file_record = connection.execute(
@@ -1431,18 +1441,15 @@ def admin_download(file_id):
         (file_id,)
     ).fetchone()
 
-
     if not file_record:
 
         connection.close()
 
         return "File not found.", 404
 
-
     owner = file_record[0]
     filename = file_record[1]
     encrypted_data = file_record[2]
-
 
     connection.execute(
         """
@@ -1461,7 +1468,6 @@ def admin_download(file_id):
     connection.commit()
     connection.close()
 
-
     try:
 
         cipher = Fernet(
@@ -1474,8 +1480,10 @@ def admin_download(file_id):
 
     except Exception:
 
-        return "Unable to decrypt file.", 500
-
+        return (
+            "Unable to decrypt file.",
+            500
+        )
 
     return send_file(
         BytesIO(decrypted_data),
@@ -1490,7 +1498,6 @@ def admin_delete_file(file_id):
     if not admin_required():
         return redirect("/dashboard")
 
-
     connection = get_connection()
 
     connection.execute(
@@ -1504,7 +1511,6 @@ def admin_delete_file(file_id):
     connection.commit()
     connection.close()
 
-
     return redirect("/admin-files")
 
 
@@ -1513,7 +1519,6 @@ def logs():
 
     if not admin_required():
         return redirect("/dashboard")
-
 
     connection = get_connection()
 
@@ -1528,7 +1533,6 @@ def logs():
 
     connection.close()
 
-
     return render_template(
         "logs.html",
         logs=login_logs
@@ -1541,7 +1545,6 @@ def alerts():
     if not admin_required():
         return redirect("/dashboard")
 
-
     connection = get_connection()
 
     alert_list = connection.execute(
@@ -1553,7 +1556,6 @@ def alerts():
     ).fetchall()
 
     connection.close()
-
 
     return render_template(
         "alerts.html",

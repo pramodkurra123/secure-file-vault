@@ -85,6 +85,15 @@ def create_database():
             used BOOLEAN NOT NULL DEFAULT FALSE
         )
     """)
+    connection.execute("""
+    CREATE TABLE IF NOT EXISTS vault_keys (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        recovery_data BYTEA NOT NULL,
+        created_at TIMESTAMP NOT NULL,
+        updated_at TIMESTAMP NOT NULL
+    )
+""")
 
     # =====================================================
     # PRO VAULT FILES

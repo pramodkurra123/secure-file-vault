@@ -710,24 +710,21 @@ def get_vault_password_hash(username):
     return password_hash
 
 
-def set_vault_password(
-    username,
-    password
-):
+def set_vault_password(username, password):
 
-    password_hash = generate_password_hash(
-        password
-    )
+    password_hash = generate_password_hash(password)
 
-    create_vault_key(
-        username
-    )
+    # Make sure the vault key already exists.
+    vault_key = create_vault_key(username)
+
+    if not vault_key:
+        raise RuntimeError("Unable to access the existing vault key.")
 
     connection = get_connection()
 
     try:
 
-        connection.execute(
+        result = connection.execute(
             """
             UPDATE vault_keys
             SET
@@ -742,6 +739,12 @@ def set_vault_password(
             )
         )
 
+        if result.rowcount != 1:
+            connection.rollback()
+            raise RuntimeError(
+                "Vault password record was not updated."
+            )
+
         connection.commit()
 
     except Exception:
@@ -752,6 +755,18 @@ def set_vault_password(
     finally:
 
         connection.close()
+
+    # IMPORTANT:
+    # Verify the password after saving it.
+    if not verify_vault_password(
+        username,
+        password
+    ):
+        raise RuntimeError(
+            "New vault password could not be verified."
+        )
+
+    return True
 
 
 def verify_vault_password(
@@ -2374,15 +2389,31 @@ def pro_vault_reset():
 
         try:
 
-            # IMPORTANT:
-            # This changes only the password hash.
-            # recovery_data and the vault key remain unchanged.
+            # Save the new password hash.
+            # The existing vault encryption key is NOT changed.
             set_vault_password(
                 username,
                 new_password
             )
 
-            session["vault_unlocked"] = True
+            # Verify one more time using the exact
+            # password entered by the user.
+            if not verify_vault_password(
+                username,
+                new_password
+            ):
+
+                return render_template(
+                    "pro_vault_reset.html",
+                    error=(
+                        "The new password could not "
+                        "be verified. Please try again."
+                    )
+                )
+
+            # Do NOT assume the vault is unlocked merely
+            # because the password was reset.
+            session["vault_unlocked"] = False
 
             session.pop(
                 "vault_reset_verified",

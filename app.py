@@ -423,7 +423,10 @@ def generate_and_send_otp(username, email):
 # ---------------------------------------------------------
 # LOGIN
 # ---------------------------------------------------------
-
+@app.route("/")
+def home():
+    return redirect(url_for("login"))
+    
 @app.route(
     "/login",
     methods=["GET", "POST"]

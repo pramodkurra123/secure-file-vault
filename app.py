@@ -683,11 +683,12 @@ def login():
                 )
             )
 
-        return render_template(
+                return render_template(
             "login.html",
             error="Invalid username or password"
         )
-            return render_template(
+
+    return render_template(
         "login.html"
     )
 

@@ -10,7 +10,9 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 def get_connection():
 
     if not DATABASE_URL:
-        raise RuntimeError("DATABASE_URL environment variable is not set.")
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not set."
+        )
 
     return psycopg.connect(
         DATABASE_URL,
@@ -83,7 +85,12 @@ def create_database():
             used BOOLEAN NOT NULL DEFAULT FALSE
         )
     """)
-        connection.execute("""
+
+    # =====================================================
+    # PRO VAULT FILES
+    # =====================================================
+
+    connection.execute("""
         CREATE TABLE IF NOT EXISTS pro_vault_files (
             id SERIAL PRIMARY KEY,
             username TEXT NOT NULL,
@@ -97,13 +104,25 @@ def create_database():
 
     connection.commit()
 
-    admin_username = os.environ.get("ADMIN_USERNAME")
-    admin_password = os.environ.get("ADMIN_PASSWORD")
-    admin_email = os.environ.get("ADMIN_EMAIL")
+    admin_username = os.environ.get(
+        "ADMIN_USERNAME"
+    )
+
+    admin_password = os.environ.get(
+        "ADMIN_PASSWORD"
+    )
+
+    admin_email = os.environ.get(
+        "ADMIN_EMAIL"
+    )
 
     if not admin_username or not admin_password or not admin_email:
+
+        connection.close()
+
         raise RuntimeError(
-            "ADMIN_USERNAME, ADMIN_PASSWORD and ADMIN_EMAIL environment variables are required."
+            "ADMIN_USERNAME, ADMIN_PASSWORD and "
+            "ADMIN_EMAIL environment variables are required."
         )
 
     existing_user = connection.execute(
@@ -117,12 +136,19 @@ def create_database():
 
     if existing_user is None:
 
-        password_hash = generate_password_hash(admin_password)
+        password_hash = generate_password_hash(
+            admin_password
+        )
 
         connection.execute(
             """
             INSERT INTO users
-            (username, password, role, email)
+            (
+                username,
+                password,
+                role,
+                email
+            )
             VALUES (%s, %s, %s, %s)
             """,
             (

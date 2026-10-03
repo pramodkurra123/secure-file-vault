@@ -85,19 +85,6 @@ def create_database():
             used BOOLEAN NOT NULL DEFAULT FALSE
         )
     """)
-    connection.execute("""
-    CREATE TABLE IF NOT EXISTS vault_keys (
-        id SERIAL PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL,
-        recovery_data BYTEA NOT NULL,
-        created_at TIMESTAMP NOT NULL,
-        updated_at TIMESTAMP NOT NULL
-    )
-""")
-
-    # =====================================================
-    # PRO VAULT FILES
-    # =====================================================
 
     connection.execute("""
         CREATE TABLE IF NOT EXISTS pro_vault_files (
@@ -111,22 +98,23 @@ def create_database():
         )
     """)
 
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS vault_keys (
+            id SERIAL PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            recovery_data BYTEA NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            updated_at TIMESTAMP NOT NULL
+        )
+    """)
+
     connection.commit()
 
-    admin_username = os.environ.get(
-        "ADMIN_USERNAME"
-    )
-
-    admin_password = os.environ.get(
-        "ADMIN_PASSWORD"
-    )
-
-    admin_email = os.environ.get(
-        "ADMIN_EMAIL"
-    )
+    admin_username = os.environ.get("ADMIN_USERNAME")
+    admin_password = os.environ.get("ADMIN_PASSWORD")
+    admin_email = os.environ.get("ADMIN_EMAIL")
 
     if not admin_username or not admin_password or not admin_email:
-
         connection.close()
 
         raise RuntimeError(

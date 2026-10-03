@@ -302,8 +302,10 @@
             {% endif %}
 
 
+            <!-- FIXED: Submit to /upload-file using POST -->
+
             <form
-                action="/upload"
+                action="/upload-file"
                 method="POST"
                 enctype="multipart/form-data"
             >
@@ -437,6 +439,7 @@
         }
 
     </script>
+
     <script src="{{ url_for('static', filename='security.js') }}"></script>
 
 </body>

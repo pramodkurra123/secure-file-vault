@@ -8,6 +8,8 @@ from email.message import EmailMessage
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from cryptography.fernet import Fernet
+
 from flask import (
     Flask,
     render_template,
@@ -501,7 +503,122 @@ def generate_and_send_otp(
 
     return True, "OTP sent successfully."
 
+# =========================================================
+# PRO VAULT KEY HELPERS
+# =========================================================
 
+def get_recovery_key():
+
+    key = os.environ.get("VAULT_RECOVERY_KEY")
+
+    if not key:
+        raise RuntimeError(
+            "VAULT_RECOVERY_KEY is not set."
+        )
+
+    return key.encode()
+
+
+def encrypt_recovery_data(data):
+
+    cipher = Fernet(
+        get_recovery_key()
+    )
+
+    return cipher.encrypt(data)
+
+
+def decrypt_recovery_data(data):
+
+    cipher = Fernet(
+        get_recovery_key()
+    )
+
+    return cipher.decrypt(data)
+
+
+def get_vault_key(username):
+
+    connection = get_connection()
+
+    row = connection.execute(
+        """
+        SELECT recovery_data
+        FROM vault_keys
+        WHERE username = %s
+        """,
+        (username,)
+    ).fetchone()
+
+    connection.close()
+
+    if not row:
+        return None
+
+    try:
+
+        return decrypt_recovery_data(
+            bytes(row[0])
+        )
+
+    except Exception as e:
+
+        print(
+            f"VAULT KEY DECRYPT ERROR: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return None
+
+
+def create_vault_key(username):
+
+    existing_key = get_vault_key(
+        username
+    )
+
+    if existing_key:
+        return existing_key
+
+    vault_key = secrets.token_bytes(32)
+
+    encrypted_key = encrypt_recovery_data(
+        vault_key
+    )
+
+    now = utc_now()
+
+    connection = get_connection()
+
+    connection.execute(
+        """
+        INSERT INTO vault_keys
+        (
+            username,
+            recovery_data,
+            created_at,
+            updated_at
+        )
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (username)
+        DO NOTHING
+        """,
+        (
+            username,
+            encrypted_key,
+            now,
+            now
+        )
+    )
+
+    connection.commit()
+    connection.close()
+
+    existing_key = get_vault_key(
+        username
+    )
+
+    return existing_key or vault_key
 # =========================================================
 # HOME
 # =========================================================
@@ -1341,6 +1458,10 @@ def dashboard():
 # PRO VAULT
 # =========================================================
 
+# =========================================================
+# PRO VAULT
+# =========================================================
+
 @app.route("/pro-vault")
 def pro_vault():
 
@@ -1370,11 +1491,61 @@ def pro_vault():
 
     connection.close()
 
-    return render_template(
-        "pro_vault.html",
-        files=files
+    vault_key = create_vault_key(
+        session.get("username")
     )
 
+    return render_template(
+        "pro_vault.html",
+        files=files,
+        vault_initialized=bool(vault_key)
+    )
+# =========================================================
+# GET PRO VAULT KEY
+# =========================================================
+
+@app.route(
+    "/pro-vault-key",
+    methods=["GET"]
+)
+def pro_vault_key():
+
+    if not login_required():
+
+        return {
+            "message": "Authentication required."
+        }, 401
+
+    username = session.get(
+        "username"
+    )
+
+    try:
+
+        vault_key = create_vault_key(
+            username
+        )
+
+        if not vault_key:
+
+            return {
+                "message": "Unable to create vault key."
+            }, 500
+
+        return {
+            "vault_key": vault_key.hex()
+        }, 200
+
+    except Exception as e:
+
+        print(
+            f"PRO VAULT KEY ERROR: "
+            f"{type(e).__name__}: {e}"
+        )
+
+        return {
+            "message": "Unable to access vault key."
+        }, 500
 
 # =========================================================
 # PRO VAULT ENCRYPTED UPLOAD
@@ -1451,7 +1622,7 @@ def pro_vault_upload():
         }, 400
 
     if len(encrypted_data) > (
-        5 * 1024 * 1024 + 1024
+        5 * 1024 * 1024 + 4096
     ):
 
         return {
@@ -1518,6 +1689,341 @@ def pro_vault_upload():
     return {
         "message": "Encrypted file uploaded successfully."
     }, 200
+# =========================================================
+# FORGOT VAULT PASSWORD
+# =========================================================
+
+@app.route(
+    "/pro-vault-forgot",
+    methods=["GET", "POST"]
+)
+def pro_vault_forgot():
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if request.method == "POST":
+
+        username = session.get(
+            "username"
+        )
+
+        connection = get_connection()
+
+        user = connection.execute(
+            """
+            SELECT email
+            FROM users
+            WHERE username = %s
+            """,
+            (username,)
+        ).fetchone()
+
+        connection.close()
+
+        if not user or not user[0]:
+
+            return render_template(
+                "pro_vault_forgot.html",
+                error=(
+                    "No email address is registered "
+                    "for this account."
+                )
+            )
+
+        sent, message = generate_and_send_otp(
+            username,
+            user[0]
+        )
+
+        if not sent:
+
+            return render_template(
+                "pro_vault_forgot.html",
+                error=message
+            )
+
+        session["vault_reset_pending"] = True
+
+        return redirect(
+            url_for("pro_vault_forgot_otp")
+        )
+
+    return render_template(
+        "pro_vault_forgot.html"
+    )
+
+
+# =========================================================
+# VERIFY VAULT RESET OTP
+# =========================================================
+
+@app.route(
+    "/pro-vault-forgot-otp",
+    methods=["GET", "POST"]
+)
+def pro_vault_forgot_otp():
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if not session.get(
+        "vault_reset_pending"
+    ):
+
+        return redirect(
+            url_for("pro_vault")
+        )
+
+    username = session.get(
+        "username"
+    )
+
+    if request.method == "POST":
+
+        entered_otp = request.form.get(
+            "otp",
+            ""
+        ).strip()
+
+        if not re.fullmatch(
+            r"\d{6}",
+            entered_otp
+        ):
+
+            return render_template(
+                "pro_vault_forgot_otp.html",
+                error="Enter a valid 6-digit OTP."
+            )
+
+        connection = get_connection()
+
+        try:
+
+            otp_row = connection.execute(
+                """
+                SELECT id,
+                       otp_hash,
+                       expires_at,
+                       attempts,
+                       used
+                FROM otp_codes
+                WHERE username = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (username,)
+            ).fetchone()
+
+            if otp_row is None:
+
+                return render_template(
+                    "pro_vault_forgot_otp.html",
+                    error=(
+                        "No OTP found. "
+                        "Please request a new OTP."
+                    )
+                )
+
+            otp_id = otp_row[0]
+            otp_hash = otp_row[1]
+            expires_at = otp_row[2]
+            attempts = otp_row[3]
+            used = otp_row[4]
+
+            if used:
+
+                return render_template(
+                    "pro_vault_forgot_otp.html",
+                    error=(
+                        "This OTP has already been used."
+                    )
+                )
+
+            if utc_now() > expires_at:
+
+                connection.execute(
+                    """
+                    UPDATE otp_codes
+                    SET used = TRUE
+                    WHERE id = %s
+                    """,
+                    (otp_id,)
+                )
+
+                connection.commit()
+
+                return render_template(
+                    "pro_vault_forgot_otp.html",
+                    error="OTP expired."
+                )
+
+            if attempts >= 3:
+
+                connection.execute(
+                    """
+                    UPDATE otp_codes
+                    SET used = TRUE
+                    WHERE id = %s
+                    """,
+                    (otp_id,)
+                )
+
+                connection.commit()
+
+                return render_template(
+                    "pro_vault_forgot_otp.html",
+                    error=(
+                        "Maximum OTP attempts exceeded."
+                    )
+                )
+
+            entered_hash = hashlib.sha256(
+                entered_otp.encode()
+            ).hexdigest()
+
+            if not secrets.compare_digest(
+                entered_hash,
+                otp_hash
+            ):
+
+                connection.execute(
+                    """
+                    UPDATE otp_codes
+                    SET attempts = attempts + 1
+                    WHERE id = %s
+                    """,
+                    (otp_id,)
+                )
+
+                connection.commit()
+
+                return render_template(
+                    "pro_vault_forgot_otp.html",
+                    error="Invalid OTP."
+                )
+
+            connection.execute(
+                """
+                UPDATE otp_codes
+                SET used = TRUE
+                WHERE id = %s
+                """,
+                (otp_id,)
+            )
+
+            connection.commit()
+
+        except Exception as e:
+
+            connection.rollback()
+
+            print(
+                f"VAULT RESET OTP ERROR: "
+                f"{type(e).__name__}: {e}"
+            )
+
+            return render_template(
+                "pro_vault_forgot_otp.html",
+                error="An internal error occurred."
+            )
+
+        finally:
+
+            connection.close()
+
+        session["vault_reset_verified"] = True
+        session.pop(
+            "vault_reset_pending",
+            None
+        )
+
+        return redirect(
+            url_for("pro_vault_reset")
+        )
+
+    return render_template(
+        "pro_vault_forgot_otp.html"
+    )
+
+
+# =========================================================
+# RESET VAULT PASSWORD
+# =========================================================
+
+@app.route(
+    "/pro-vault-reset",
+    methods=["GET", "POST"]
+)
+def pro_vault_reset():
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if not session.get(
+        "vault_reset_verified"
+    ):
+
+        return redirect(
+            url_for("pro_vault")
+        )
+
+    if request.method == "POST":
+
+        new_password = request.form.get(
+            "new_password",
+            ""
+        )
+
+        confirm_password = request.form.get(
+            "confirm_password",
+            ""
+        )
+
+        if len(new_password) < 8:
+
+            return render_template(
+                "pro_vault_reset.html",
+                error=(
+                    "Password must contain "
+                    "at least 8 characters."
+                )
+            )
+
+        if new_password != confirm_password:
+
+            return render_template(
+                "pro_vault_reset.html",
+                error="Passwords do not match."
+            )
+
+        session.pop(
+            "vault_reset_verified",
+            None
+        )
+
+        return render_template(
+            "pro_vault_reset.html",
+            success=(
+                "OTP verified. "
+                "Set the new vault password "
+                "from the Pro Vault page."
+            ),
+            reset_ready=True
+        )
+
+    return render_template(
+        "pro_vault_reset.html"
+    )
 
 
 # =========================================================

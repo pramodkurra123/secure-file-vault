@@ -767,7 +767,8 @@
                         <button
                             type="button"
                             class="download-button"
-                            onclick="downloadFile({{ file[0] }}, {{ file[1]|tojson }})"
+                            data-file-id="{{ file[0] }}"
+                            data-file-name="{{ file[1]|e }}"
                         >
                             🔓 Download & Decrypt
                         </button>
@@ -1087,7 +1088,29 @@ form.addEventListener("submit", async function(event) {
 /* =========================================================
    PRO VAULT DOWNLOAD + DECRYPT
    ========================================================= */
+document
+    .querySelectorAll(".download-button")
+    .forEach(function(button) {
 
+        button.addEventListener(
+            "click",
+            function() {
+
+                const fileId =
+                    this.dataset.fileId;
+
+                const originalName =
+                    this.dataset.fileName;
+
+                downloadFile(
+                    fileId,
+                    originalName
+                );
+
+            }
+        );
+
+    });
 async function downloadFile(
     fileId,
     originalName

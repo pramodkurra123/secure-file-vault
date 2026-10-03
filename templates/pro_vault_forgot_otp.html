@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Verify Pro Vault OTP</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background:
+                radial-gradient(
+                    circle at 15% 10%,
+                    rgba(6, 182, 212, 0.08),
+                    transparent 28%
+                ),
+                radial-gradient(
+                    circle at 85% 20%,
+                    rgba(124, 58, 237, 0.10),
+                    transparent 30%
+                ),
+                #020617;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 25px;
+        }
+
+        .box {
+            width: 100%;
+            max-width: 460px;
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(15, 23, 42, 0.98),
+                    rgba(10, 18, 34, 0.98)
+                );
+            border: 1px solid #263653;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow:
+                0 15px 50px rgba(0, 0, 0, 0.35);
+        }
+
+        .icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #06b6d4,
+                    #7c3aed
+                );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 18px;
+        }
+
+        h1 {
+            font-size: 25px;
+            margin-bottom: 9px;
+            color: #f8fafc;
+        }
+
+        .description {
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.7;
+            margin-bottom: 25px;
+        }
+
+        .group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            color: #cbd5e1;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 13px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #020617;
+            color: #e2e8f0;
+            font-size: 18px;
+            text-align: center;
+            letter-spacing: 6px;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #06b6d4;
+            box-shadow:
+                0 0 0 2px rgba(6, 182, 212, 0.10);
+        }
+
+        .button {
+            width: 100%;
+            padding: 13px;
+            border: 1px solid #0891b2;
+            border-radius: 8px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #0891b2,
+                    #7c3aed
+                );
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+        }
+
+        .error {
+            background:
+                rgba(239, 68, 68, 0.08);
+            border:
+                1px solid rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            margin-bottom: 18px;
+            line-height: 1.6;
+        }
+
+        .info {
+            margin-top: 18px;
+            padding: 13px;
+            border-radius: 9px;
+            background:
+                rgba(6, 182, 212, 0.06);
+            border: 1px solid #263653;
+            color: #94a3b8;
+            font-size: 11px;
+            line-height: 1.7;
+        }
+
+        .back {
+            display: block;
+            text-align: center;
+            margin-top: 18px;
+            color: #67e8f9;
+            text-decoration: none;
+            font-size: 12px;
+        }
+
+        .back:hover {
+            text-decoration: underline;
+        }
+
+        .resend {
+            display: block;
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #cbd5e1;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .resend:hover {
+            border-color: #06b6d4;
+            color: #67e8f9;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<div class="box">
+
+
+    <div class="icon">
+        🔢
+    </div>
+
+
+    <h1>
+        Verify OTP
+    </h1>
+
+
+    <p class="description">
+
+        A 6-digit OTP has been sent to your registered
+        email address. Enter the OTP below to continue
+        resetting your Pro Vault password.
+
+    </p>
+
+
+    {% if error %}
+
+        <div class="error">
+            {{ error }}
+        </div>
+
+    {% endif %}
+
+
+    <form
+        method="POST"
+        id="otpForm"
+    >
+
+        <div class="group">
+
+            <label>
+                Enter 6-Digit OTP
+            </label>
+
+            <input
+                type="text"
+                name="otp"
+                id="otp"
+                maxlength="6"
+                minlength="6"
+                inputmode="numeric"
+                pattern="[0-9]{6}"
+                autocomplete="one-time-code"
+                placeholder="000000"
+                required
+            >
+
+        </div>
+
+
+        <button
+            type="submit"
+            class="button"
+        >
+            ✅ Verify OTP
+        </button>
+
+    </form>
+
+
+    <div class="info">
+
+        🛡️ The OTP is valid for a limited time and has a
+        limited number of verification attempts.
+
+    </div>
+
+
+    <a
+        href="{{ url_for('pro_vault') }}"
+        class="back"
+    >
+        ← Cancel and Return to Pro Vault
+    </a>
+
+
+</div>
+
+
+<script>
+
+document
+    .getElementById("otpForm")
+    ?.addEventListener(
+        "submit",
+        function(event) {
+
+            const otp =
+                document
+                    .getElementById("otp")
+                    .value
+                    .trim();
+
+
+            if (!/^\d{6}$/.test(otp)) {
+
+                event.preventDefault();
+
+                alert(
+                    "Please enter the 6-digit OTP."
+                );
+
+                return;
+
+            }
+
+        }
+    );
+
+
+document
+    .getElementById("otp")
+    ?.addEventListener(
+        "input",
+        function() {
+
+            this.value =
+                this.value
+                    .replace(
+                        /[^0-9]/g,
+                        ""
+                    )
+                    .slice(
+                        0,
+                        6
+                    );
+
+        }
+    );
+
+</script>
+
+</body>
+
+</html>

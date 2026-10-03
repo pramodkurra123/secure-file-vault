@@ -204,6 +204,11 @@
             background: #6d28d9;
         }
 
+        .button:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
         .warning {
             margin-top: 18px;
             padding: 13px;
@@ -285,6 +290,69 @@
             margin-top: 3px;
         }
 
+        .files-card {
+            margin-top: 22px;
+        }
+
+        .file-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            padding: 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .file-info {
+            min-width: 0;
+        }
+
+        .file-name {
+            font-size: 13px;
+            font-weight: bold;
+            word-break: break-word;
+        }
+
+        .file-meta {
+            margin-top: 5px;
+            color: #64748b;
+            font-size: 11px;
+        }
+
+        .download-button {
+            border: none;
+            border-radius: 7px;
+            padding: 9px 13px;
+            background: #7c3aed;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .download-button:hover {
+            background: #6d28d9;
+        }
+
+        .empty {
+            padding: 25px;
+            text-align: center;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            color: #64748b;
+            font-size: 12px;
+        }
+
         footer {
             text-align: center;
             color: #94a3b8;
@@ -318,6 +386,15 @@
                 font-size: 25px;
             }
 
+            .file-item {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .download-button {
+                width: 100%;
+            }
+
         }
 
     </style>
@@ -326,343 +403,423 @@
 
 <body>
 
+<header class="topbar">
 
-    <header class="topbar">
+    <div class="brand">
 
-        <div class="brand">
-
-            <div class="brand-icon">
-                🔒
-            </div>
-
-            Pro Vault
-
+        <div class="brand-icon">
+            🔒
         </div>
 
+        Pro Vault
 
-        <a href="/dashboard" class="back">
-            ← Dashboard
-        </a>
+    </div>
 
-    </header>
+    <a href="/dashboard" class="back">
+        ← Dashboard
+    </a>
+
+</header>
 
 
-    <main class="main">
+<main class="main">
 
 
-        <section class="hero">
+    <section class="hero">
 
-            <h1>
-                Private Pro Vault
-            </h1>
+        <h1>
+            Private Pro Vault
+        </h1>
 
-            <p>
-                Store your files and photos in a privacy-focused vault.
-                Your Pro Vault password is used to protect your files and
-                is not intended to be accessible to the server administrator.
+        <p>
+            Store your files and photos in a privacy-focused vault.
+            Your Pro Vault password is used to protect your files and
+            is not sent to the server during encryption or decryption.
+        </p>
+
+        <div class="privacy-badge">
+            🔐 CLIENT-SIDE ENCRYPTION
+        </div>
+
+    </section>
+
+
+    <div class="grid">
+
+
+        <!-- UPLOAD -->
+
+        <section class="card">
+
+            <h2>
+                🔒 Secure Your File
+            </h2>
+
+            <p class="card-description">
+                Select a file or photo and create a password for your
+                private Pro Vault.
             </p>
 
-            <div class="privacy-badge">
-                🔐 PRIVACY-FOCUSED STORAGE
+
+            <div class="privacy-box">
+
+                <h3>
+                    Privacy Protection
+                </h3>
+
+                <ul>
+
+                    <li>
+                        Your Pro Vault password stays in your browser.
+                    </li>
+
+                    <li>
+                        Encryption is performed locally.
+                    </li>
+
+                    <li>
+                        Only encrypted data is uploaded.
+                    </li>
+
+                    <li>
+                        The server does not receive your password.
+                    </li>
+
+                </ul>
+
+            </div>
+
+
+            <form id="proVaultForm">
+
+                <div class="form-group">
+
+                    <label>
+                        Select File or Photo
+                    </label>
+
+                    <input
+                        type="file"
+                        id="file"
+                        required
+                    >
+
+                    <div class="file-note">
+                        Maximum file size: 5 MB
+                    </div>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Pro Vault Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="vault_password"
+                        placeholder="Create your private password"
+                        required
+                        minlength="8"
+                        autocomplete="new-password"
+                    >
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>
+                        Confirm Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="confirm_password"
+                        placeholder="Re-enter your password"
+                        required
+                        minlength="8"
+                        autocomplete="new-password"
+                    >
+
+                </div>
+
+
+                <button
+                    type="submit"
+                    class="button"
+                >
+                    🔐 Encrypt & Upload
+                </button>
+
+            </form>
+
+
+            <div class="warning">
+
+                ⚠️ <strong>Important:</strong>
+                Your Pro Vault password is not stored by the server.
+                If you lose it, your encrypted file may become
+                permanently inaccessible.
+
             </div>
 
         </section>
 
 
-        <div class="grid">
+        <!-- HOW IT WORKS -->
+
+        <section class="card">
+
+            <h2>
+                🛡️ How Pro Vault Works
+            </h2>
+
+            <p class="card-description">
+                Your file is encrypted before the encrypted data
+                reaches the server.
+            </p>
 
 
-            <!-- UPLOAD SECTION -->
+            <div class="steps">
 
-            <section class="card">
+                <div class="step">
 
-                <h2>
-                    🔒 Secure Your File
-                </h2>
-
-                <p class="card-description">
-                    Select a file or photo and create a password for your
-                    private Pro Vault.
-                </p>
-
-
-                <div class="privacy-box">
-
-                    <h3>
-                        Privacy Protection
-                    </h3>
-
-                    <ul>
-
-                        <li>
-                            Your Pro Vault password is private.
-                        </li>
-
-                        <li>
-                            Encryption will be performed in your browser.
-                        </li>
-
-                        <li>
-                            The server will store encrypted data.
-                        </li>
-
-                        <li>
-                            Your password will not be stored.
-                        </li>
-
-                    </ul>
-
-                </div>
-
-
-                <form
-                    id="proVaultForm"
-                >
-
-                    <div class="form-group">
-
-                        <label>
-                            Select File or Photo
-                        </label>
-
-                        <input
-                            type="file"
-                            name="file"
-                            id="file"
-                            required
-                        >
-
-                        <div class="file-note">
-                            Maximum file size: 5 MB
-                        </div>
-
+                    <div class="step-number">
+                        1
                     </div>
 
-
-                    <div class="form-group">
-
-                        <label>
-                            Pro Vault Password
-                        </label>
-
-                        <input
-                            type="password"
-                            id="vault_password"
-                            placeholder="Create your private password"
-                            required
-                            minlength="8"
-                            autocomplete="new-password"
-                        >
-
-                    </div>
-
-
-                    <div class="form-group">
-
-                        <label>
-                            Confirm Password
-                        </label>
-
-                        <input
-                            type="password"
-                            id="confirm_password"
-                            placeholder="Re-enter your password"
-                            required
-                            minlength="8"
-                        >
-
-                    </div>
-
-
-                    <button
-                        type="submit"
-                        class="button"
-                    >
-                        🔐 Encrypt & Upload
-                    </button>
-
-                </form>
-
-
-                <div class="warning">
-
-                    ⚠️ <strong>Important:</strong>
-                    Your Pro Vault password is intended to be known only
-                    to you. If the password is lost, encrypted files may
-                    become permanently inaccessible.
-
-                </div>
-
-            </section>
-
-
-            <!-- HOW IT WORKS -->
-
-            <section class="card">
-
-                <h2>
-                    🛡️ How Pro Vault Works
-                </h2>
-
-                <p class="card-description">
-                    Your files are designed to be protected before they
-                    reach the server.
-                </p>
-
-
-                <div class="steps">
-
-
-                    <div class="step">
-
-                        <div class="step-number">
-                            1
-                        </div>
-
-                        <div class="step-text">
-
-                            <strong>
-                                Select File
-                            </strong>
-
-                            <span>
-                                Choose a document, image or other file.
-                            </span>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="step">
-
-                        <div class="step-number">
-                            2
-                        </div>
-
-                        <div class="step-text">
-
-                            <strong>
-                                Enter Password
-                            </strong>
-
-                            <span>
-                                Create your private Pro Vault password.
-                            </span>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="step">
-
-                        <div class="step-number">
-                            3
-                        </div>
-
-                        <div class="step-text">
-
-                            <strong>
-                                Browser Encryption
-                            </strong>
-
-                            <span>
-                                The browser encrypts the selected file.
-                            </span>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="step">
-
-                        <div class="step-number">
-                            4
-                        </div>
-
-                        <div class="step-text">
-
-                            <strong>
-                                Encrypted Storage
-                            </strong>
-
-                            <span>
-                                Only encrypted data is sent to the server.
-                            </span>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="step">
-
-                        <div class="step-number">
-                            5
-                        </div>
-
-                        <div class="step-text">
-
-                            <strong>
-                                Private Access
-                            </strong>
-
-                            <span>
-                                Your password is required to decrypt the file.
-                            </span>
-
-                        </div>
-
-                    </div>
-
-
-                </div>
-
-
-                <div class="vault-status">
-
-                    <div class="status-dot"></div>
-
-                    <div>
+                    <div class="step-text">
 
                         <strong>
-                            Pro Vault Security
+                            Select File
                         </strong>
 
-                        <p>
-                            Client-side encryption architecture
-                        </p>
+                        <span>
+                            Choose a document, image or other file.
+                        </span>
 
                     </div>
 
                 </div>
 
-            </section>
 
-        </div>
+                <div class="step">
+
+                    <div class="step-number">
+                        2
+                    </div>
+
+                    <div class="step-text">
+
+                        <strong>
+                            Enter Password
+                        </strong>
+
+                        <span>
+                            Create your private Pro Vault password.
+                        </span>
+
+                    </div>
+
+                </div>
 
 
-    </main>
+                <div class="step">
+
+                    <div class="step-number">
+                        3
+                    </div>
+
+                    <div class="step-text">
+
+                        <strong>
+                            Browser Encryption
+                        </strong>
+
+                        <span>
+                            AES-256-GCM encryption is performed locally.
+                        </span>
+
+                    </div>
+
+                </div>
 
 
-    <footer>
+                <div class="step">
 
-        Secure File Vault &nbsp;•&nbsp; Pro Vault Privacy Layer
+                    <div class="step-number">
+                        4
+                    </div>
 
-    </footer>
+                    <div class="step-text">
+
+                        <strong>
+                            Encrypted Storage
+                        </strong>
+
+                        <span>
+                            The server stores encrypted bytes.
+                        </span>
+
+                    </div>
+
+                </div>
 
 
-    <script>
+                <div class="step">
 
-    const form = document.getElementById("proVaultForm");
+                    <div class="step-number">
+                        5
+                    </div>
 
-    form.addEventListener("submit", async function(event) {
+                    <div class="step-text">
+
+                        <strong>
+                            Browser Decryption
+                        </strong>
+
+                        <span>
+                            Your password decrypts the file locally.
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="vault-status">
+
+                <div class="status-dot"></div>
+
+                <div>
+
+                    <strong>
+                        Pro Vault Security
+                    </strong>
+
+                    <p>
+                        Client-side encryption architecture
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </div>
+
+
+    <!-- MY PRO VAULT FILES -->
+
+    <section class="card files-card">
+
+        <h2>
+            📁 My Pro Vault Files
+        </h2>
+
+        <p class="card-description">
+            Your encrypted files are stored on the server.
+            Enter your Pro Vault password when downloading to decrypt
+            the file inside your browser.
+        </p>
+
+
+        {% if files %}
+
+            <div class="file-list">
+
+                {% for file in files %}
+
+                    <div class="file-item">
+
+                        <div class="file-info">
+
+                            <div class="file-name">
+                                🔐 {{ file[1] }}
+                            </div>
+
+                            <div class="file-meta">
+
+                                {% if file[2] < 1024 %}
+                                    {{ file[2] }} bytes
+                                {% elif file[2] < 1024 * 1024 %}
+                                    {{ "%.2f"|format(file[2] / 1024) }} KB
+                                {% else %}
+                                    {{ "%.2f"|format(file[2] / (1024 * 1024)) }} MB
+                                {% endif %}
+
+                                &nbsp; • &nbsp;
+
+                                Uploaded:
+                                {{ file[3] }}
+
+                            </div>
+
+                        </div>
+
+
+                        <button
+                            type="button"
+                            class="download-button"
+                            onclick="downloadFile({{ file[0] }}, {{ file[1]|tojson }})"
+                        >
+                            🔓 Download & Decrypt
+                        </button>
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="empty">
+
+                No Pro Vault files uploaded yet.
+
+            </div>
+
+        {% endif %}
+
+    </section>
+
+
+</main>
+
+
+<footer>
+
+    Secure File Vault &nbsp;•&nbsp; Pro Vault Privacy Layer
+
+</footer>
+
+
+<script>
+
+/* =========================================================
+   PRO VAULT UPLOAD
+   ========================================================= */
+
+const form =
+    document.getElementById("proVaultForm");
+
+
+form.addEventListener(
+    "submit",
+    async function(event) {
 
         event.preventDefault();
 
-        const fileInput = document.getElementById("file");
+
+        const fileInput =
+            document.getElementById("file");
 
         const passwordInput =
             document.getElementById("vault_password");
@@ -670,16 +827,22 @@
         const confirmInput =
             document.getElementById("confirm_password");
 
-        const file = fileInput.files[0];
 
-        const password = passwordInput.value;
+        const file =
+            fileInput.files[0];
 
-        const confirmPassword = confirmInput.value;
+        const password =
+            passwordInput.value;
+
+        const confirmPassword =
+            confirmInput.value;
 
 
         if (!file) {
 
-            alert("Please select a file.");
+            alert(
+                "Please select a file."
+            );
 
             return;
         }
@@ -687,7 +850,9 @@
 
         if (password.length < 8) {
 
-            alert("Password must contain at least 8 characters.");
+            alert(
+                "Password must contain at least 8 characters."
+            );
 
             return;
         }
@@ -695,22 +860,32 @@
 
         if (password !== confirmPassword) {
 
-            alert("Passwords do not match.");
+            alert(
+                "Passwords do not match."
+            );
 
             return;
         }
 
 
-        if (file.size > 5 * 1024 * 1024) {
+        if (
+            file.size >
+            5 * 1024 * 1024
+        ) {
 
-            alert("File size must be 5 MB or less.");
+            alert(
+                "File size must be 5 MB or less."
+            );
 
             return;
         }
 
 
         const button =
-            form.querySelector("button[type='submit']");
+            form.querySelector(
+                "button[type='submit']"
+            );
+
 
         button.disabled = true;
 
@@ -720,19 +895,12 @@
 
         try {
 
-            /*
-             * Read the original file.
-             */
-
             const fileBuffer =
                 await file.arrayBuffer();
 
 
             /*
-             * Generate a random salt.
-             *
-             * The salt is NOT secret.
-             * It is stored together with the encrypted file.
+             * Random salt.
              */
 
             const salt =
@@ -742,7 +910,7 @@
 
 
             /*
-             * Generate a random IV for AES-GCM.
+             * Random AES-GCM IV.
              */
 
             const iv =
@@ -752,14 +920,17 @@
 
 
             /*
-             * Convert password into key material.
+             * Convert password to key material.
              */
 
             const encoder =
                 new TextEncoder();
 
+
             const passwordData =
-                encoder.encode(password);
+                encoder.encode(
+                    password
+                );
 
 
             const keyMaterial =
@@ -773,9 +944,7 @@
 
 
             /*
-             * Derive the encryption key.
-             *
-             * 600,000 PBKDF2-SHA256 iterations.
+             * PBKDF2-SHA256
              */
 
             const key =
@@ -797,7 +966,7 @@
 
 
             /*
-             * Encrypt the file.
+             * AES-256-GCM encryption.
              */
 
             const encrypted =
@@ -812,11 +981,11 @@
 
 
             /*
-             * Create encrypted payload.
+             * Payload:
              *
-             * Format:
-             *
-             * [salt][iv][encrypted data]
+             * [16-byte salt]
+             * [12-byte IV]
+             * [encrypted file]
              */
 
             const result =
@@ -840,34 +1009,30 @@
 
 
             result.set(
-                new Uint8Array(encrypted),
+                new Uint8Array(
+                    encrypted
+                ),
                 salt.length + iv.length
             );
 
-
-            /*
-             * Convert encrypted data to Blob.
-             */
 
             const encryptedBlob =
                 new Blob(
                     [result],
                     {
-                        type: "application/octet-stream"
+                        type:
+                            "application/octet-stream"
                     }
                 );
 
 
             /*
-             * Send ONLY encrypted data.
-             *
-             * Password is NOT included.
-             *
-             * Original file is NOT included.
+             * Send only encrypted data.
              */
 
             const formData =
                 new FormData();
+
 
             formData.append(
                 "encrypted_file",
@@ -930,6 +1095,13 @@
                 "🔐 Encrypt & Upload";
 
 
+            /*
+             * Refresh file list.
+             */
+
+            window.location.reload();
+
+
         } catch (error) {
 
             console.error(
@@ -951,7 +1123,269 @@
 
         }
 
-    });
+    }
+);
+
+
+/* =========================================================
+   PRO VAULT DOWNLOAD + DECRYPT
+   ========================================================= */
+
+async function downloadFile(
+    fileId,
+    originalName
+) {
+
+    const password =
+        prompt(
+            "Enter your Pro Vault password:"
+        );
+
+
+    if (!password) {
+
+        return;
+    }
+
+
+    if (password.length < 8) {
+
+        alert(
+            "Invalid Pro Vault password."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        /*
+         * Download encrypted bytes.
+         */
+
+        const response =
+            await fetch(
+                "/pro-vault-download/" +
+                fileId
+            );
+
+
+        if (!response.ok) {
+
+            let message =
+                "Unable to download encrypted file.";
+
+            try {
+
+                const data =
+                    await response.json();
+
+                message =
+                    data.message ||
+                    message;
+
+            } catch (e) {
+                // Ignore JSON parsing errors.
+            }
+
+            throw new Error(
+                message
+            );
+
+        }
+
+
+        const encryptedBuffer =
+            await response.arrayBuffer();
+
+
+        /*
+         * Validate payload.
+         *
+         * 16 bytes salt
+         * 12 bytes IV
+         */
+
+        if (
+            encryptedBuffer.byteLength <
+            28
+        ) {
+
+            throw new Error(
+                "Invalid encrypted file."
+            );
+
+        }
+
+
+        const encryptedData =
+            new Uint8Array(
+                encryptedBuffer
+            );
+
+
+        /*
+         * Extract salt.
+         */
+
+        const salt =
+            encryptedData.slice(
+                0,
+                16
+            );
+
+
+        /*
+         * Extract IV.
+         */
+
+        const iv =
+            encryptedData.slice(
+                16,
+                28
+            );
+
+
+        /*
+         * Extract ciphertext.
+         */
+
+        const ciphertext =
+            encryptedData.slice(
+                28
+            );
+
+
+        /*
+         * Convert password to key material.
+         */
+
+        const encoder =
+            new TextEncoder();
+
+
+        const passwordData =
+            encoder.encode(
+                password
+            );
+
+
+        const keyMaterial =
+            await crypto.subtle.importKey(
+                "raw",
+                passwordData,
+                "PBKDF2",
+                false,
+                ["deriveKey"]
+            );
+
+
+        /*
+         * Derive the same AES-256 key.
+         */
+
+        const key =
+            await crypto.subtle.deriveKey(
+                {
+                    name: "PBKDF2",
+                    salt: salt,
+                    iterations: 600000,
+                    hash: "SHA-256"
+                },
+                keyMaterial,
+                {
+                    name: "AES-GCM",
+                    length: 256
+                },
+                false,
+                ["decrypt"]
+            );
+
+
+        /*
+         * Decrypt inside the browser.
+         */
+
+        const decrypted =
+            await crypto.subtle.decrypt(
+                {
+                    name: "AES-GCM",
+                    iv: iv
+                },
+                key,
+                ciphertext
+            );
+
+
+        /*
+         * Create local file.
+         */
+
+        const blob =
+            new Blob(
+                [decrypted],
+                {
+                    type:
+                        "application/octet-stream"
+                }
+            );
+
+
+        const url =
+            URL.createObjectURL(
+                blob
+            );
+
+
+        const link =
+            document.createElement(
+                "a"
+            );
+
+
+        link.href = url;
+
+        link.download =
+            originalName;
+
+
+        document.body.appendChild(
+            link
+        );
+
+
+        link.click();
+
+
+        link.remove();
+
+
+        URL.revokeObjectURL(
+            url
+        );
+
+
+        alert(
+            "🔓 File decrypted and downloaded successfully."
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "PRO VAULT DECRYPT ERROR:",
+            error
+        );
+
+
+        alert(
+            "❌ Incorrect password or corrupted encrypted file."
+        );
+
+    }
+
+}
 
 </script>
 

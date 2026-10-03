@@ -510,35 +510,11 @@
         </div>
 
 
-        {% if session["role"] == "admin" %}
+        <!-- PRO VAULT -->
 
-        <section class="admin-section">
+<div class="cards">
 
-            <div class="admin-header">
-
-                <h2>
-                    Administration
-                </h2>
-
-                <span class="admin-badge">
-                    ADMIN ONLY
-                </span>
-
-            </div>
-
-
-            <a href="/admin-files" class="admin-card">
-
-                <h3>
-                    🗂️ Admin File Management
-                </h3>
-
-                <p>
-                    View and download uploaded files from all user accounts.
-                </p>
-
-            </a>
-            <a href="/pro-vault" class="card">
+    <a href="/pro-vault" class="card">
 
         <div class="card-icon">
             🔒
@@ -554,12 +530,43 @@
 
     </a>
 
-
 </div>
 
-        </section>
 
-        {% endif %}
+<!-- ADMIN ONLY -->
+
+{% if session["role"] == "admin" %}
+
+<section class="admin-section">
+
+    <div class="admin-header">
+
+        <h2>
+            Administration
+        </h2>
+
+        <span class="admin-badge">
+            ADMIN ONLY
+        </span>
+
+    </div>
+
+
+    <a href="/admin-files" class="admin-card">
+
+        <h3>
+            🗂️ Admin File Management
+        </h3>
+
+        <p>
+            View and download uploaded files from all user accounts.
+        </p>
+
+    </a>
+
+</section>
+
+{% endif %}
 
 
         <div class="security-status">

@@ -474,14 +474,14 @@
 
                         <div class="file-actions">
 
+                            <!-- FIXED DOWNLOAD BUTTON -->
+
                             <button
                                 type="button"
                                 class="small-button download-button"
-                                onclick="downloadFile(
-                                    {{ file[0] }},
-                                    {{ file[1]|tojson }},
-                                    {{ url_for('pro_vault_download', file_id=file[0])|tojson }}
-                                )"
+                                data-file-id="{{ file[0] }}"
+                                data-filename="{{ file[1]|e }}"
+                                data-download-url="{{ url_for('pro_vault_download', file_id=file[0]) }}"
                             >
                                 ⬇ Download
                             </button>
@@ -1480,6 +1480,47 @@ document.addEventListener(
                 }
             );
         }
+
+
+        /*
+         * Download button handlers
+         *
+         * No inline onclick is used here.
+         * This avoids Jinja/HTML/JavaScript parsing
+         * problems with filenames.
+         */
+
+        const downloadButtons =
+            document.querySelectorAll(
+                ".download-button"
+            );
+
+        downloadButtons.forEach(
+            function(button) {
+
+                button.addEventListener(
+                    "click",
+                    function() {
+
+                        const fileId =
+                            button.dataset.fileId;
+
+                        const filename =
+                            button.dataset.filename;
+
+                        const downloadUrl =
+                            button.dataset.downloadUrl;
+
+                        downloadFile(
+                            fileId,
+                            filename,
+                            downloadUrl
+                        );
+                    }
+                );
+            }
+        );
+
 
         const uploadButton =
             document.getElementById(

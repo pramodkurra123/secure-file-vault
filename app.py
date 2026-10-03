@@ -1,19 +1,31 @@
-from datetime import datetime, timedelta, timezone
 import os
-import psycopg
-import secrets
-import hashlib
+import io
+import re
 import smtplib
+import hashlib
+import secrets
 from email.message import EmailMessage
-
-from flask import Flask, render_template, request, redirect, session, send_file
-from database import create_database, get_connection
-from werkzeug.security import check_password_hash, generate_password_hash
-from security import decrypt_file
-from cryptography.fernet import Fernet
-from werkzeug.utils import secure_filename
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
-from io import BytesIO
+
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    session,
+    send_file,
+    flash
+)
+
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
+
+from database import get_connection, create_database
+from security import encrypt_file, decrypt_file
 
 
 app = Flask(__name__)
@@ -21,10 +33,24 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 
 if not app.secret_key:
-    raise RuntimeError(
-        "FLASK_SECRET_KEY environment variable is not set."
-    )
+    raise RuntimeError("FLASK_SECRET_KEY is not set.")
 
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+
+# ---------------------------------------------------------
+# DATABASE INITIALIZATION
+# ---------------------------------------------------------
+
+create_database()
+
+
+# ---------------------------------------------------------
+# TIME HELPERS
+# ---------------------------------------------------------
 
 def utc_now():
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -36,120 +62,65 @@ def to_ist(value):
         return ""
 
     if value.tzinfo is None:
-        value = value.replace(
-            tzinfo=timezone.utc
-        )
+        value = value.replace(tzinfo=timezone.utc)
 
     return value.astimezone(
         ZoneInfo("Asia/Kolkata")
-    ).strftime(
-        "%d-%m-%Y %I:%M:%S %p"
-    )
+    ).strftime("%d-%m-%Y %I:%M:%S %p")
 
 
 app.jinja_env.filters["ist"] = to_ist
 
 
-def get_client_ip():
-
-    forwarded_for = request.headers.get(
-        "X-Forwarded-For"
-    )
-
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-
-    return request.remote_addr or "Unknown"
-
-
-def login_required():
-
-    return "username" in session
-
-
-def admin_required():
-
-    return (
-        "username" in session
-        and session.get("role") == "admin"
-    )
-
+# ---------------------------------------------------------
+# EMAIL CONFIGURATION
+# ---------------------------------------------------------
 
 def send_otp_email(email, otp):
 
-    smtp_host = os.environ.get(
-        "BREVO_SMTP_HOST"
-    )
-
+    smtp_host = os.environ.get("BREVO_SMTP_HOST")
     smtp_port = int(
-        os.environ.get(
-            "BREVO_SMTP_PORT",
-            "2525"
-        )
+        os.environ.get("BREVO_SMTP_PORT", "2525")
     )
+    smtp_login = os.environ.get("BREVO_SMTP_LOGIN")
+    smtp_password = os.environ.get("BREVO_SMTP_PASSWORD")
 
-    smtp_login = os.environ.get(
-        "BREVO_SMTP_LOGIN"
-    )
-
-    smtp_password = os.environ.get(
-        "BREVO_SMTP_PASSWORD"
-    )
-
-    sender_email = os.environ.get(
-        "BREVO_SENDER_EMAIL"
-    )
-
+    sender_email = os.environ.get("BREVO_SENDER_EMAIL")
     sender_name = os.environ.get(
         "BREVO_SENDER_NAME",
         "Secure File Vault"
     )
 
-    if not smtp_host:
-        raise RuntimeError(
-            "BREVO_SMTP_HOST environment variable is not set."
-        )
-
-    if not smtp_login:
-        raise RuntimeError(
-            "BREVO_SMTP_LOGIN environment variable is not set."
-        )
-
-    if not smtp_password:
-        raise RuntimeError(
-            "BREVO_SMTP_PASSWORD environment variable is not set."
-        )
-
-    if not sender_email:
-        raise RuntimeError(
-            "BREVO_SENDER_EMAIL environment variable is not set."
-        )
+    if not all([
+        smtp_host,
+        smtp_login,
+        smtp_password,
+        sender_email
+    ]):
+        print("BREVO SMTP SETTINGS ARE MISSING")
+        return False
 
     message = EmailMessage()
 
-    message["Subject"] = (
-        "Secure File Vault - Login OTP"
-    )
-
-    message["From"] = (
-        f"{sender_name} <{sender_email}>"
-    )
-
+    message["Subject"] = "Secure File Vault - OTP"
+    message["From"] = f"{sender_name} <{sender_email}>"
     message["To"] = email
 
     message.set_content(
         f"""
 Secure File Vault
 
-Your login verification code is:
+Your One-Time Password (OTP) is:
 
 {otp}
 
 This OTP is valid for 5 minutes.
 
-Do not share this OTP with anyone.
+You have a maximum of 3 verification attempts.
 
-If you did not attempt to log in, you can safely ignore this email.
+If you did not attempt to log in, please ignore this email.
+
+Secure File Vault
 """
     )
 
@@ -168,43 +139,33 @@ If you did not attempt to log in, you can safely ignore this email.
                 smtp_password
             )
 
-            server.send_message(
-                message
-            )
+            server.send_message(message)
 
-        print(
-            f"BREVO SUCCESS: OTP email sent to {email}"
-        )
+        print(f"OTP EMAIL SENT TO {email}")
+
+        return True
 
     except smtplib.SMTPAuthenticationError as e:
 
-        print(
-            f"BREVO AUTH ERROR: {e}"
-        )
-
-        raise RuntimeError(
-            "Brevo SMTP authentication failed."
-        )
+        print(f"OTP SMTP AUTH ERROR: {e}")
 
     except smtplib.SMTPException as e:
 
-        print(
-            f"BREVO SMTP ERROR: {e}"
-        )
-
-        raise RuntimeError(
-            "Brevo SMTP email sending failed."
-        )
+        print(f"OTP SMTP ERROR: {e}")
 
     except Exception as e:
 
         print(
-            f"BREVO UNKNOWN ERROR: "
+            f"OTP EMAIL ERROR: "
             f"{type(e).__name__}: {e}"
         )
 
-        raise
+    return False
 
+
+# ---------------------------------------------------------
+# SECURITY ALERT EMAIL
+# ---------------------------------------------------------
 
 def send_security_alert_email(
     ip_address,
@@ -212,9 +173,7 @@ def send_security_alert_email(
     timestamp
 ):
 
-    smtp_host = os.environ.get(
-        "BREVO_SMTP_HOST"
-    )
+    smtp_host = os.environ.get("BREVO_SMTP_HOST")
 
     smtp_port = int(
         os.environ.get(
@@ -244,30 +203,19 @@ def send_security_alert_email(
         "ADMIN_EMAIL"
     )
 
-    if not admin_email:
-        raise RuntimeError(
-            "ADMIN_EMAIL environment variable is not set."
+    if not all([
+        smtp_host,
+        smtp_login,
+        smtp_password,
+        sender_email,
+        admin_email
+    ]):
+
+        print(
+            "SECURITY ALERT SMTP SETTINGS ARE MISSING"
         )
 
-    if not smtp_host:
-        raise RuntimeError(
-            "BREVO_SMTP_HOST environment variable is not set."
-        )
-
-    if not smtp_login:
-        raise RuntimeError(
-            "BREVO_SMTP_LOGIN environment variable is not set."
-        )
-
-    if not smtp_password:
-        raise RuntimeError(
-            "BREVO_SMTP_PASSWORD environment variable is not set."
-        )
-
-    if not sender_email:
-        raise RuntimeError(
-            "BREVO_SENDER_EMAIL environment variable is not set."
-        )
+        return False
 
     ist_time = to_ist(timestamp)
 
@@ -323,14 +271,14 @@ Secure File Vault
                 smtp_password
             )
 
-            server.send_message(
-                email
-            )
+            server.send_message(email)
 
         print(
             f"SECURITY ALERT EMAIL SENT TO "
             f"{admin_email}"
         )
+
+        return True
 
     except smtplib.SMTPAuthenticationError as e:
 
@@ -351,6 +299,12 @@ Secure File Vault
             f"{type(e).__name__}: {e}"
         )
 
+    return False
+
+
+# ---------------------------------------------------------
+# OTP GENERATION
+# ---------------------------------------------------------
 
 def generate_and_send_otp(username, email):
 
@@ -358,11 +312,7 @@ def generate_and_send_otp(username, email):
 
     now = utc_now()
 
-    fifteen_minutes_ago = (
-        now - timedelta(minutes=15)
-    )
-
-    request_count = connection.execute(
+    recent_count = connection.execute(
         """
         SELECT COUNT(*)
         FROM otp_codes
@@ -371,54 +321,42 @@ def generate_and_send_otp(username, email):
         """,
         (
             username,
-            fifteen_minutes_ago
+            now - timedelta(minutes=15)
         )
     ).fetchone()[0]
 
-    if request_count >= 3:
+    if recent_count >= 3:
 
         connection.close()
 
         return False, (
-            "Maximum OTP requests reached. "
-            "Please try again after 15 minutes."
+            "Too many OTP requests. "
+            "Please try again later."
         )
 
-    latest = connection.execute(
+    last_otp = connection.execute(
         """
         SELECT created_at
         FROM otp_codes
         WHERE username = %s
-        ORDER BY id DESC
+        ORDER BY created_at DESC
         LIMIT 1
         """,
         (username,)
     ).fetchone()
 
-    if latest:
+    if last_otp:
 
-        seconds_passed = (
-            now - latest[0]
-        ).total_seconds()
-
-        if seconds_passed < 60:
-
-            remaining = int(
-                60 - seconds_passed
-            )
+        if now - last_otp[0] < timedelta(
+            seconds=60
+        ):
 
             connection.close()
 
             return False, (
-                f"Please wait {remaining} seconds "
+                "Please wait 60 seconds "
                 "before requesting another OTP."
             )
-
-    otp = f"{secrets.randbelow(1000000):06d}"
-
-    otp_hash = hashlib.sha256(
-        otp.encode()
-    ).hexdigest()
 
     connection.execute(
         """
@@ -430,154 +368,131 @@ def generate_and_send_otp(username, email):
         (username,)
     )
 
+    otp = f"{secrets.randbelow(1000000):06d}"
+
+    otp_hash = hashlib.sha256(
+        otp.encode()
+    ).hexdigest()
+
+    created_at = now
+
+    expires_at = (
+        now + timedelta(minutes=5)
+    )
+
     connection.execute(
         """
         INSERT INTO otp_codes
-        (username, otp_hash, created_at,
-         expires_at, attempts, used)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        (
+            username,
+            otp_hash,
+            created_at,
+            expires_at,
+            attempts,
+            used
+        )
+        VALUES (%s, %s, %s, %s, 0, FALSE)
         """,
         (
             username,
             otp_hash,
-            now,
-            now + timedelta(minutes=5),
-            0,
-            False
+            created_at,
+            expires_at
         )
     )
 
     connection.commit()
+
     connection.close()
 
-    try:
+    sent = send_otp_email(
+        email,
+        otp
+    )
 
-        send_otp_email(
-            email,
-            otp
-        )
-
-    except Exception:
-
-        connection = get_connection()
-
-        connection.execute(
-            """
-            UPDATE otp_codes
-            SET used = TRUE
-            WHERE username = %s
-            AND used = FALSE
-            """,
-            (username,)
-        )
-
-        connection.commit()
-        connection.close()
+    if not sent:
 
         return False, (
-            "Unable to send OTP. Please try again."
+            "Unable to send OTP email. "
+            "Please try again."
         )
 
-    return True, None
+    return True, "OTP sent successfully."
 
 
-@app.route("/")
-def home():
+# ---------------------------------------------------------
+# LOGIN
+# ---------------------------------------------------------
 
-    if login_required():
-        return redirect("/dashboard")
-
-    return redirect("/login")
-
-
-@app.route("/login", methods=["GET", "POST"])
+@app.route(
+    "/login",
+    methods=["GET", "POST"]
+)
 def login():
 
     if request.method == "POST":
 
-        username = request.form["username"].strip()
-        password = request.form["password"]
+        username = request.form.get(
+            "username",
+            ""
+        ).strip()
 
-        ip_address = get_client_ip()
+        password = request.form.get(
+            "password",
+            ""
+        )
+
+        ip_address = (
+            request.headers.get(
+                "X-Forwarded-For",
+                request.remote_addr
+            )
+        )
+
+        if "," in ip_address:
+            ip_address = (
+                ip_address.split(",")[0]
+                .strip()
+            )
 
         connection = get_connection()
 
         user = connection.execute(
             """
-            SELECT username, password, role, email
+            SELECT id, username, password, role, email
             FROM users
             WHERE username = %s
             """,
             (username,)
         ).fetchone()
 
-        is_admin = (
-            user is not None
-            and user[2] == "admin"
-        )
+        # -------------------------------------------------
+        # USER NOT FOUND
+        # -------------------------------------------------
 
-        now = utc_now()
-
-        five_minutes_ago = (
-            now - timedelta(minutes=5)
-        )
-
-        if user and check_password_hash(
-            user[1],
-            password
-        ):
-
-            email = user[3]
-
-            if not email:
-
-                connection.close()
-
-                return render_template(
-                    "login.html",
-                    error=(
-                        "No email address is registered "
-                        "for this account."
-                    )
-                )
-
-            connection.close()
-
-            success, error = generate_and_send_otp(
-                username,
-                email
-            )
-
-            if not success:
-
-                return render_template(
-                    "login.html",
-                    error=error
-                )
-
-            session["otp_pending"] = True
-            session["otp_username"] = username
-            session["otp_role"] = user[2]
-
-            return redirect("/verify-otp")
-
-        if is_admin:
+        if user is None:
 
             connection.execute(
                 """
                 INSERT INTO login_attempts
-                (username, ip_address, timestamp, status)
+                (
+                    username,
+                    ip_address,
+                    timestamp,
+                    status
+                )
                 VALUES (%s, %s, %s, %s)
                 """,
                 (
                     username,
                     ip_address,
-                    now,
+                    utc_now(),
                     "FAILED"
                 )
             )
 
             connection.commit()
+
             connection.close()
 
             return render_template(
@@ -585,130 +500,276 @@ def login():
                 error="Invalid username or password"
             )
 
-        failed_count = connection.execute(
-            """
-            SELECT COUNT(*)
-            FROM login_attempts
-            WHERE ip_address = %s
-            AND status = 'FAILED'
-            AND timestamp >= %s
-            """,
-            (
-                ip_address,
-                five_minutes_ago
-            )
-        ).fetchone()[0]
+        user_id = user[0]
+        db_username = user[1]
+        password_hash = user[2]
+        role = user[3]
+        email = user[4]
 
-        if failed_count >= 3:
+        # -------------------------------------------------
+        # CHECK PASSWORD
+        # -------------------------------------------------
+
+        password_valid = check_password_hash(
+            password_hash,
+            password
+        )
+
+        # -------------------------------------------------
+        # ADMIN FAILED LOGIN
+        # ADMIN IS NEVER BLOCKED
+        # -------------------------------------------------
+
+        if role == "admin":
+
+            if not password_valid:
+
+                connection.execute(
+                    """
+                    INSERT INTO login_attempts
+                    (
+                        username,
+                        ip_address,
+                        timestamp,
+                        status
+                    )
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (
+                        db_username,
+                        ip_address,
+                        utc_now(),
+                        "FAILED"
+                    )
+                )
+
+                connection.commit()
+
+                connection.close()
+
+                return render_template(
+                    "login.html",
+                    error="Invalid username or password"
+                )
+
+        else:
+
+            # ---------------------------------------------
+            # CHECK EXISTING IP BLOCK
+            # ---------------------------------------------
+
+            failed_count = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM login_attempts
+                WHERE ip_address = %s
+                AND status = 'FAILED'
+                AND timestamp >= %s
+                """,
+                (
+                    ip_address,
+                    utc_now() - timedelta(
+                        minutes=5
+                    )
+                )
+            ).fetchone()[0]
+
+            if failed_count >= 3:
+
+                connection.close()
+
+                return render_template(
+                    "login.html",
+                    error=(
+                        "This IP address is temporarily "
+                        "blocked for 5 minutes."
+                    )
+                )
+
+            # ---------------------------------------------
+            # INVALID PASSWORD
+            # ---------------------------------------------
+
+            if not password_valid:
+
+                now = utc_now()
+
+                connection.execute(
+                    """
+                    INSERT INTO login_attempts
+                    (
+                        username,
+                        ip_address,
+                        timestamp,
+                        status
+                    )
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (
+                        db_username,
+                        ip_address,
+                        now,
+                        "FAILED"
+                    )
+                )
+
+                failed_count += 1
+
+                if failed_count == 3:
+
+                    alert_message = (
+                        "Three failed login attempts "
+                        "detected from the same IP address."
+                    )
+
+                    connection.execute(
+                        """
+                        INSERT INTO alerts
+                        (
+                            ip_address,
+                            message,
+                            timestamp
+                        )
+                        VALUES (%s, %s, %s)
+                        """,
+                        (
+                            ip_address,
+                            alert_message,
+                            now
+                        )
+                    )
+
+                    connection.commit()
+
+                    connection.close()
+
+                    send_security_alert_email(
+                        ip_address,
+                        alert_message,
+                        now
+                    )
+
+                    return render_template(
+                        "login.html",
+                        error=(
+                            "Too many failed attempts. "
+                            "This IP address is blocked "
+                            "for 5 minutes."
+                        )
+                    )
+
+                connection.commit()
+
+                connection.close()
+
+                return render_template(
+                    "login.html",
+                    error="Invalid username or password"
+                )
+
+        # -------------------------------------------------
+        # PASSWORD CORRECT
+        # -------------------------------------------------
+
+        if not email:
 
             connection.close()
 
             return render_template(
                 "login.html",
                 error=(
-                    "This IP address is temporarily "
-                    "blocked for invalid login attempts. "
-                    "Try again after 5 minutes."
+                    "No email address is registered "
+                    "for this account. "
+                    "Please contact the administrator."
                 )
             )
+
+        now = utc_now()
 
         connection.execute(
             """
             INSERT INTO login_attempts
-            (username, ip_address, timestamp, status)
-            VALUES (%s, %s, %s, %s)
-            """,
             (
                 username,
                 ip_address,
+                timestamp,
+                status
+            )
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                db_username,
+                ip_address,
                 now,
-                "FAILED"
+                "OTP_PENDING"
             )
         )
 
-        failed_count += 1
-
-        if failed_count == 3:
-
-            alert_message = (
-                "Three failed login attempts detected. "
-                "Further invalid login attempts from "
-                "this IP are temporarily blocked for "
-                "5 minutes."
-            )
-
-            connection.execute(
-                """
-                INSERT INTO alerts
-                (ip_address, message, timestamp)
-                VALUES (%s, %s, %s)
-                """,
-                (
-                    ip_address,
-                    alert_message,
-                    now
-                )
-            )
-
-            connection.commit()
-
-            try:
-
-                send_security_alert_email(
-                    ip_address,
-                    alert_message,
-                    now
-                )
-
-            except Exception as e:
-
-                print(
-                    f"Security alert notification failed: {e}"
-                )
-
-        else:
-
-            connection.commit()
+        connection.commit()
 
         connection.close()
 
-        if failed_count >= 3:
+        sent, message = generate_and_send_otp(
+            db_username,
+            email
+        )
+
+        if not sent:
 
             return render_template(
                 "login.html",
-                error=(
-                    "This IP address is temporarily "
-                    "blocked for invalid login attempts. "
-                    "Try again after 5 minutes."
-                )
+                error=message
             )
 
-                return render_template(
-            "login.html",
-            error="Invalid username or password"
+        session["pending_username"] = (
+            db_username
         )
+
+        session["pending_ip"] = ip_address
+
+        return redirect(
+            url_for("verify_otp")
+        )
+
+    # IMPORTANT:
+    # This return fixes the previous 500 error.
 
     return render_template(
         "login.html"
     )
 
 
-@app.route("/verify-otp", methods=["GET", "POST"])
+# ---------------------------------------------------------
+# VERIFY OTP
+# ---------------------------------------------------------
+
+@app.route(
+    "/verify-otp",
+    methods=["GET", "POST"]
+)
 def verify_otp():
 
-    if not session.get("otp_pending"):
-
-        return redirect("/login")
-
     username = session.get(
-        "otp_username"
+        "pending_username"
     )
+
+    if not username:
+
+        return redirect(
+            url_for("login")
+        )
 
     if request.method == "POST":
 
-        otp = request.form["otp"].strip()
+        entered_otp = request.form.get(
+            "otp",
+            ""
+        ).strip()
 
-        if not otp.isdigit() or len(otp) != 6:
+        if not re.fullmatch(
+            r"\d{6}",
+            entered_otp
+        ):
 
             return render_template(
                 "otp.html",
@@ -717,35 +778,36 @@ def verify_otp():
 
         connection = get_connection()
 
-        record = connection.execute(
+        otp_row = connection.execute(
             """
-            SELECT id, otp_hash, expires_at,
-                   attempts, used
+            SELECT id,
+                   otp_hash,
+                   created_at,
+                   expires_at,
+                   attempts,
+                   used
             FROM otp_codes
             WHERE username = %s
-            ORDER BY id DESC
+            ORDER BY created_at DESC
             LIMIT 1
             """,
             (username,)
         ).fetchone()
 
-        if record is None:
+        if otp_row is None:
 
             connection.close()
 
             return render_template(
                 "otp.html",
-                error=(
-                    "OTP not found. "
-                    "Please request a new OTP."
-                )
+                error="No OTP found. Please request a new OTP."
             )
 
-        otp_id = record[0]
-        otp_hash = record[1]
-        expires_at = record[2]
-        attempts = record[3]
-        used = record[4]
+        otp_id = otp_row[0]
+        otp_hash = otp_row[1]
+        expires_at = otp_row[3]
+        attempts = otp_row[4]
+        used = otp_row[5]
 
         if used:
 
@@ -754,7 +816,7 @@ def verify_otp():
             return render_template(
                 "otp.html",
                 error=(
-                    "This OTP is no longer valid. "
+                    "This OTP has already been used. "
                     "Please request a new OTP."
                 )
             )
@@ -771,12 +833,13 @@ def verify_otp():
             )
 
             connection.commit()
+
             connection.close()
 
             return render_template(
                 "otp.html",
                 error=(
-                    "OTP has expired. "
+                    "OTP expired. "
                     "Please request a new OTP."
                 )
             )
@@ -793,6 +856,7 @@ def verify_otp():
             )
 
             connection.commit()
+
             connection.close()
 
             return render_template(
@@ -804,84 +868,83 @@ def verify_otp():
             )
 
         entered_hash = hashlib.sha256(
-            otp.encode()
+            entered_otp.encode()
         ).hexdigest()
 
-        if secrets.compare_digest(
-            entered_hash,
-            otp_hash
-        ):
+        if entered_hash != otp_hash:
 
             connection.execute(
                 """
                 UPDATE otp_codes
-                SET used = TRUE
+                SET attempts = attempts + 1
                 WHERE id = %s
                 """,
                 (otp_id,)
             )
 
-            connection.execute(
-                """
-                INSERT INTO login_attempts
-                (username, ip_address, timestamp, status)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (
-                    username,
-                    get_client_ip(),
-                    utc_now(),
-                    "SUCCESS"
-                )
-            )
-
             connection.commit()
+
             connection.close()
 
-            role = session.get(
-                "otp_role"
+            return render_template(
+                "otp.html",
+                error="Invalid OTP."
             )
 
-            session.clear()
-
-            session["username"] = username
-            session["role"] = role
-
-            return redirect("/dashboard")
-
-        attempts += 1
+        # -------------------------------------------------
+        # OTP SUCCESS
+        # -------------------------------------------------
 
         connection.execute(
             """
             UPDATE otp_codes
-            SET attempts = %s
+            SET used = TRUE
             WHERE id = %s
             """,
+            (otp_id,)
+        )
+
+        ip_address = session.get(
+            "pending_ip",
+            request.remote_addr
+        )
+
+        connection.execute(
+            """
+            UPDATE login_attempts
+            SET status = 'SUCCESS'
+            WHERE username = %s
+            AND ip_address = %s
+            AND status = 'OTP_PENDING'
+            ORDER BY timestamp DESC
+            LIMIT 1
+            """,
             (
-                attempts,
-                otp_id
+                username,
+                ip_address
             )
         )
 
+        user = connection.execute(
+            """
+            SELECT username, role
+            FROM users
+            WHERE username = %s
+            """,
+            (username,)
+        ).fetchone()
+
         connection.commit()
+
         connection.close()
 
-        if attempts >= 3:
+        session.clear()
 
-            return render_template(
-                "otp.html",
-                error=(
-                    "Maximum OTP attempts exceeded. "
-                    "Please request a new OTP."
-                )
-            )
+        session["username"] = user[0]
+        session["role"] = user[1]
 
-        return render_template(
-            "otp.html",
-            error=(
-                f"Invalid OTP. "
-                f"{3 - attempts} attempts remaining."
-            )
+        return redirect(
+            url_for("dashboard")
         )
 
     return render_template(
@@ -889,16 +952,25 @@ def verify_otp():
     )
 
 
-@app.route("/resend-otp", methods=["POST"])
+# ---------------------------------------------------------
+# RESEND OTP
+# ---------------------------------------------------------
+
+@app.route(
+    "/resend-otp",
+    methods=["POST"]
+)
 def resend_otp():
 
-    if not session.get("otp_pending"):
-
-        return redirect("/login")
-
     username = session.get(
-        "otp_username"
+        "pending_username"
     )
+
+    if not username:
+
+        return redirect(
+            url_for("login")
+        )
 
     connection = get_connection()
 
@@ -915,42 +987,57 @@ def resend_otp():
 
     if not user or not user[0]:
 
-        session.clear()
-
         return render_template(
-            "login.html",
+            "otp.html",
             error=(
                 "No email address is registered "
                 "for this account."
             )
         )
 
-    success, error = generate_and_send_otp(
+    sent, message = generate_and_send_otp(
         username,
         user[0]
     )
 
-    if not success:
+    if not sent:
 
         return render_template(
             "otp.html",
-            error=error
+            error=message
         )
 
     return render_template(
         "otp.html",
-        error=(
-            "A new OTP has been sent to "
-            "your email address."
-        )
+        message=message
     )
 
+
+# ---------------------------------------------------------
+# LOGIN REQUIRED
+# ---------------------------------------------------------
+
+def login_required():
+
+    if "username" not in session:
+
+        return False
+
+    return True
+
+
+# ---------------------------------------------------------
+# DASHBOARD
+# ---------------------------------------------------------
 
 @app.route("/dashboard")
 def dashboard():
 
     if not login_required():
-        return redirect("/login")
+
+        return redirect(
+            url_for("login")
+        )
 
     return render_template(
         "dashboard.html",
@@ -959,44 +1046,59 @@ def dashboard():
     )
 
 
+# ---------------------------------------------------------
+# ENCRYPTION FLOW
+# ---------------------------------------------------------
+
 @app.route("/encryption-flow")
 def encryption_flow():
 
     if not login_required():
-        return redirect("/login")
+
+        return redirect(
+            url_for("login")
+        )
 
     return render_template(
         "encryption_flow.html"
     )
 
 
+# ---------------------------------------------------------
+# PROTECTED FILE
+# ---------------------------------------------------------
+
 @app.route("/protected-file")
 def protected_file():
 
     if not login_required():
-        return redirect("/login")
 
-    file_path = os.path.join(
-        "protected_files",
-        "secret.enc"
-    )
+        return redirect(
+            url_for("login")
+        )
 
-    if not os.path.exists(file_path):
+    if not os.path.exists(
+        "protected_files/secret.enc"
+    ):
 
         return render_template(
             "protected_file.html",
-            content="Protected file not found."
+            error="Protected file not found."
         )
 
-    temp_file = os.path.join(
+    os.makedirs(
         "protected_files",
-        "temp_secret.txt"
+        exist_ok=True
+    )
+
+    temp_file = (
+        "protected_files/temp_secret.txt"
     )
 
     try:
 
         decrypt_file(
-            file_path,
+            "protected_files/secret.enc",
             temp_file
         )
 
@@ -1008,10 +1110,41 @@ def protected_file():
 
             content = file.read()
 
-    except Exception:
+        connection = get_connection()
 
-        content = (
-            "Unable to decrypt protected file."
+        connection.execute(
+            """
+            INSERT INTO file_access_logs
+            (
+                username,
+                ip_address,
+                filename,
+                timestamp
+            )
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                session.get("username"),
+                request.remote_addr,
+                "secret.enc",
+                utc_now()
+            )
+        )
+
+        connection.commit()
+
+        connection.close()
+
+        return render_template(
+            "protected_file.html",
+            content=content
+        )
+
+    except Exception as e:
+
+        return render_template(
+            "protected_file.html",
+            error=str(e)
         )
 
     finally:
@@ -1020,46 +1153,375 @@ def protected_file():
 
             os.remove(temp_file)
 
+
+# ---------------------------------------------------------
+# FILE UPLOAD PAGE
+# ---------------------------------------------------------
+
+@app.route("/upload")
+def upload():
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    return render_template(
+        "upload.html"
+    )
+
+
+# ---------------------------------------------------------
+# FILE UPLOAD
+# ---------------------------------------------------------
+
+@app.route(
+    "/upload-file",
+    methods=["POST"]
+)
+def upload_file():
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    file = request.files.get("file")
+
+    if not file or not file.filename:
+
+        flash("Please select a file.")
+
+        return redirect(
+            url_for("upload")
+        )
+
+    filename = os.path.basename(
+        file.filename
+    )
+
+    data = file.read()
+
+    if len(data) > 5 * 1024 * 1024:
+
+        flash(
+            "File size must be 5 MB or less."
+        )
+
+        return redirect(
+            url_for("upload")
+        )
+
+    try:
+
+        temp_input = (
+            "protected_files/temp_upload_input"
+        )
+
+        temp_output = (
+            "protected_files/temp_upload_encrypted"
+        )
+
+        os.makedirs(
+            "protected_files",
+            exist_ok=True
+        )
+
+        with open(
+            temp_input,
+            "wb"
+        ) as f:
+
+            f.write(data)
+
+        encrypt_file(
+            temp_input,
+            temp_output
+        )
+
+        with open(
+            temp_output,
+            "rb"
+        ) as f:
+
+            encrypted_data = f.read()
+
+        os.remove(temp_input)
+        os.remove(temp_output)
+
+        connection = get_connection()
+
+        connection.execute(
+            """
+            INSERT INTO stored_files
+            (
+                username,
+                filename,
+                file_data,
+                file_size,
+                uploaded_at
+            )
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                session.get("username"),
+                filename,
+                encrypted_data,
+                len(data),
+                utc_now()
+            )
+        )
+
+        connection.commit()
+
+        connection.close()
+
+        flash(
+            "File uploaded and encrypted successfully."
+        )
+
+        return redirect(
+            url_for("my_files")
+        )
+
+    except Exception as e:
+
+        if os.path.exists(temp_input):
+
+            os.remove(temp_input)
+
+        if os.path.exists(temp_output):
+
+            os.remove(temp_output)
+
+        flash(
+            f"Upload failed: {e}"
+        )
+
+        return redirect(
+            url_for("upload")
+        )
+
+
+# ---------------------------------------------------------
+# MY FILES
+# ---------------------------------------------------------
+
+@app.route("/my-files")
+def my_files():
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
     connection = get_connection()
+
+    files = connection.execute(
+        """
+        SELECT id,
+               filename,
+               file_size,
+               uploaded_at
+        FROM stored_files
+        WHERE username = %s
+        ORDER BY uploaded_at DESC
+        """,
+        (session.get("username"),)
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "my_files.html",
+        files=files
+    )
+
+
+# ---------------------------------------------------------
+# DOWNLOAD USER FILE
+# ---------------------------------------------------------
+
+@app.route(
+    "/download-file/<int:file_id>"
+)
+def download_file(file_id):
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    connection = get_connection()
+
+    row = connection.execute(
+        """
+        SELECT filename,
+               file_data
+        FROM stored_files
+        WHERE id = %s
+        AND username = %s
+        """,
+        (
+            file_id,
+            session.get("username")
+        )
+    ).fetchone()
+
+    if row is None:
+
+        connection.close()
+
+        return "File not found.", 404
+
+    filename = row[0]
+    encrypted_data = row[1]
 
     connection.execute(
         """
         INSERT INTO file_access_logs
-        (username, ip_address, filename, timestamp)
+        (
+            username,
+            ip_address,
+            filename,
+            timestamp
+        )
         VALUES (%s, %s, %s, %s)
         """,
         (
             session.get("username"),
-            get_client_ip(),
-            "secret.enc",
+            request.remote_addr,
+            filename,
             utc_now()
         )
     )
 
     connection.commit()
+
     connection.close()
 
-    return render_template(
-        "protected_file.html",
-        content=content
+    try:
+
+        cipher_file = io.BytesIO(
+            encrypted_data
+        )
+
+        temp_encrypted = (
+            "protected_files/temp_download.enc"
+        )
+
+        temp_decrypted = (
+            "protected_files/temp_download"
+        )
+
+        os.makedirs(
+            "protected_files",
+            exist_ok=True
+        )
+
+        with open(
+            temp_encrypted,
+            "wb"
+        ) as f:
+
+            f.write(encrypted_data)
+
+        decrypt_file(
+            temp_encrypted,
+            temp_decrypted
+        )
+
+        with open(
+            temp_decrypted,
+            "rb"
+        ) as f:
+
+            data = f.read()
+
+        os.remove(temp_encrypted)
+        os.remove(temp_decrypted)
+
+        return send_file(
+            io.BytesIO(data),
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+
+        return f"Download failed: {e}", 500
+
+
+# ---------------------------------------------------------
+# DELETE USER FILE
+# ---------------------------------------------------------
+
+@app.route(
+    "/delete-file/<int:file_id>"
+)
+def delete_file(file_id):
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    connection = get_connection()
+
+    connection.execute(
+        """
+        DELETE FROM stored_files
+        WHERE id = %s
+        AND username = %s
+        """,
+        (
+            file_id,
+            session.get("username")
+        )
     )
 
+    connection.commit()
+
+    connection.close()
+
+    flash("File deleted successfully.")
+
+    return redirect(
+        url_for("my_files")
+    )
+
+
+# ---------------------------------------------------------
+# FILE ACCESS LOGS
+# ---------------------------------------------------------
 
 @app.route("/file-logs")
 def file_logs():
 
-    if not admin_required():
-        return redirect("/dashboard")
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
 
     connection = get_connection()
 
     logs = connection.execute(
         """
-        SELECT username, ip_address,
-               filename, timestamp
+        SELECT username,
+               ip_address,
+               filename,
+               timestamp
         FROM file_access_logs
-        ORDER BY id DESC
-        """
+        WHERE username = %s
+        ORDER BY timestamp DESC
+        """,
+        (session.get("username"),)
     ).fetchall()
 
     connection.close()
@@ -1070,78 +1532,106 @@ def file_logs():
     )
 
 
-@app.route("/users", methods=["GET", "POST"])
+# ---------------------------------------------------------
+# USERS
+# ---------------------------------------------------------
+
+@app.route(
+    "/users",
+    methods=["GET", "POST"]
+)
 def users():
 
-    if not admin_required():
-        return redirect("/dashboard")
+    if not login_required():
 
-    error = None
-
-    if request.method == "POST":
-
-        username = request.form["username"].strip()
-        password = request.form["password"]
-        email = request.form["email"].strip()
-        role = request.form.get(
-            "role",
-            "user"
+        return redirect(
+            url_for("login")
         )
 
-        if not username or not password or not email:
+    if session.get("role") != "admin":
 
-            error = (
-                "Username, password and email "
-                "are required."
-            )
-
-        elif role not in ["admin", "user"]:
-
-            error = "Invalid role."
-
-        else:
-
-            password_hash = generate_password_hash(
-                password
-            )
-
-            connection = get_connection()
-
-            try:
-
-                connection.execute(
-                    """
-                    INSERT INTO users
-                    (username, password, role, email)
-                    VALUES (%s, %s, %s, %s)
-                    """,
-                    (
-                        username,
-                        password_hash,
-                        role,
-                        email
-                    )
-                )
-
-                connection.commit()
-
-            except psycopg.errors.UniqueViolation:
-
-                connection.rollback()
-
-                error = (
-                    "Username or email already exists."
-                )
-
-            finally:
-
-                connection.close()
+        return "Access denied.", 403
 
     connection = get_connection()
 
-    user_list = connection.execute(
+    if request.method == "POST":
+
+        username = request.form.get(
+            "username",
+            ""
+        ).strip()
+
+        password = request.form.get(
+            "password",
+            ""
+        )
+
+        email = request.form.get(
+            "email",
+            ""
+        ).strip()
+
+        if not username or not password or not email:
+
+            connection.close()
+
+            return render_template(
+                "users.html",
+                error=(
+                    "Username, password and "
+                    "email are required."
+                )
+            )
+
+        existing = connection.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE username = %s
+            """,
+            (username,)
+        ).fetchone()
+
+        if existing:
+
+            connection.close()
+
+            return render_template(
+                "users.html",
+                error="Username already exists."
+            )
+
+        password_hash = generate_password_hash(
+            password
+        )
+
+        connection.execute(
+            """
+            INSERT INTO users
+            (
+                username,
+                password,
+                role,
+                email
+            )
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                username,
+                password_hash,
+                "user",
+                email
+            )
+        )
+
+        connection.commit()
+
+    users_list = connection.execute(
         """
-        SELECT id, username, role, email
+        SELECT id,
+               username,
+               email,
+               role
         FROM users
         ORDER BY id
         """
@@ -1151,19 +1641,28 @@ def users():
 
     return render_template(
         "users.html",
-        users=user_list,
-        error=error,
-        current_username=session.get(
-            "username"
-        )
+        users=users_list
     )
 
 
-@app.route("/delete-user/<int:user_id>")
+# ---------------------------------------------------------
+# DELETE USER
+# ---------------------------------------------------------
+
+@app.route(
+    "/delete-user/<int:user_id>"
+)
 def delete_user(user_id):
 
-    if not admin_required():
-        return redirect("/dashboard")
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if session.get("role") != "admin":
+
+        return "Access denied.", 403
 
     connection = get_connection()
 
@@ -1178,25 +1677,7 @@ def delete_user(user_id):
 
     if user:
 
-        username = user[0]
-        role = user[1]
-
-        current_username = session.get(
-            "username"
-        )
-
-        if (
-            username != current_username
-            and role != "admin"
-        ):
-
-            connection.execute(
-                """
-                DELETE FROM otp_codes
-                WHERE username = %s
-                """,
-                (username,)
-            )
+        if user[1] != "admin":
 
             connection.execute(
                 """
@@ -1210,238 +1691,39 @@ def delete_user(user_id):
 
     connection.close()
 
-    return redirect("/users")
-
-
-@app.route("/upload", methods=["GET", "POST"])
-def upload():
-
-    if not login_required():
-        return redirect("/login")
-
-    if request.method == "POST":
-
-        file = request.files.get(
-            "file"
-        )
-
-        if not file or file.filename == "":
-
-            return render_template(
-                "upload.html",
-                error="Please select a file."
-            )
-
-        filename = secure_filename(
-            file.filename
-        )
-
-        if not filename:
-
-            return render_template(
-                "upload.html",
-                error="Invalid filename."
-            )
-
-        file_data = file.read()
-
-        if len(file_data) > 5 * 1024 * 1024:
-
-            return render_template(
-                "upload.html",
-                error="Maximum file size is 5 MB."
-            )
-
-        fernet_key = os.environ.get(
-            "FERNET_KEY"
-        )
-
-        if not fernet_key:
-
-            return render_template(
-                "upload.html",
-                error="Encryption key is not configured."
-            )
-
-        cipher = Fernet(
-            fernet_key.encode()
-        )
-
-        encrypted_data = cipher.encrypt(
-            file_data
-        )
-
-        connection = get_connection()
-
-        connection.execute(
-            """
-            INSERT INTO stored_files
-            (username, filename, file_data,
-             file_size, uploaded_at)
-            VALUES (%s, %s, %s, %s, %s)
-            """,
-            (
-                session.get("username"),
-                filename,
-                encrypted_data,
-                len(file_data),
-                utc_now()
-            )
-        )
-
-        connection.commit()
-        connection.close()
-
-        return redirect("/my-files")
-
-    return render_template(
-        "upload.html"
+    return redirect(
+        url_for("users")
     )
 
 
-@app.route("/my-files")
-def my_files():
-
-    if not login_required():
-        return redirect("/login")
-
-    connection = get_connection()
-
-    files = connection.execute(
-        """
-        SELECT id, filename, file_size,
-               uploaded_at
-        FROM stored_files
-        WHERE username = %s
-        ORDER BY id DESC
-        """,
-        (
-            session.get("username"),
-        )
-    ).fetchall()
-
-    connection.close()
-
-    return render_template(
-        "my_files.html",
-        files=files
-    )
-
-
-@app.route("/delete-file/<int:file_id>")
-def delete_file(file_id):
-
-    if not login_required():
-        return redirect("/login")
-
-    connection = get_connection()
-
-    connection.execute(
-        """
-        DELETE FROM stored_files
-        WHERE id = %s
-        AND username = %s
-        """,
-        (
-            file_id,
-            session.get("username")
-        )
-    )
-
-    connection.commit()
-    connection.close()
-
-    return redirect("/my-files")
-
-
-@app.route("/download/<int:file_id>")
-def download(file_id):
-
-    if not login_required():
-        return redirect("/login")
-
-    connection = get_connection()
-
-    file_record = connection.execute(
-        """
-        SELECT filename, file_data
-        FROM stored_files
-        WHERE id = %s
-        AND username = %s
-        """,
-        (
-            file_id,
-            session.get("username")
-        )
-    ).fetchone()
-
-    if not file_record:
-
-        connection.close()
-
-        return (
-            "File not found or access denied.",
-            404
-        )
-
-    filename = file_record[0]
-    encrypted_data = file_record[1]
-
-    connection.execute(
-        """
-        INSERT INTO file_access_logs
-        (username, ip_address, filename, timestamp)
-        VALUES (%s, %s, %s, %s)
-        """,
-        (
-            session.get("username"),
-            get_client_ip(),
-            filename,
-            utc_now()
-        )
-    )
-
-    connection.commit()
-    connection.close()
-
-    try:
-
-        cipher = Fernet(
-            os.environ["FERNET_KEY"].encode()
-        )
-
-        decrypted_data = cipher.decrypt(
-            bytes(encrypted_data)
-        )
-
-    except Exception:
-
-        return (
-            "Unable to decrypt file.",
-            500
-        )
-
-    return send_file(
-        BytesIO(decrypted_data),
-        as_attachment=True,
-        download_name=filename
-    )
-
+# ---------------------------------------------------------
+# ADMIN FILES
+# ---------------------------------------------------------
 
 @app.route("/admin-files")
 def admin_files():
 
-    if not admin_required():
-        return redirect("/dashboard")
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if session.get("role") != "admin":
+
+        return "Access denied.", 403
 
     connection = get_connection()
 
     files = connection.execute(
         """
-        SELECT id, username, filename,
-               file_size, uploaded_at
+        SELECT id,
+               username,
+               filename,
+               file_size,
+               uploaded_at
         FROM stored_files
-        ORDER BY id DESC
+        ORDER BY uploaded_at DESC
         """
     ).fetchall()
 
@@ -1453,78 +1735,137 @@ def admin_files():
     )
 
 
-@app.route("/admin-download/<int:file_id>")
-def admin_download(file_id):
+# ---------------------------------------------------------
+# ADMIN DOWNLOAD
+# ---------------------------------------------------------
 
-    if not admin_required():
-        return redirect("/dashboard")
+@app.route(
+    "/admin-download-file/<int:file_id>"
+)
+def admin_download_file(file_id):
+
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if session.get("role") != "admin":
+
+        return "Access denied.", 403
 
     connection = get_connection()
 
-    file_record = connection.execute(
+    row = connection.execute(
         """
-        SELECT username, filename, file_data
+        SELECT username,
+               filename,
+               file_data
         FROM stored_files
         WHERE id = %s
         """,
         (file_id,)
     ).fetchone()
 
-    if not file_record:
+    if row is None:
 
         connection.close()
 
         return "File not found.", 404
 
-    filename = file_record[1]
-    encrypted_data = file_record[2]
+    username = row[0]
+    filename = row[1]
+    encrypted_data = row[2]
 
     connection.execute(
         """
         INSERT INTO file_access_logs
-        (username, ip_address, filename, timestamp)
+        (
+            username,
+            ip_address,
+            filename,
+            timestamp
+        )
         VALUES (%s, %s, %s, %s)
         """,
         (
             session.get("username"),
-            get_client_ip(),
+            request.remote_addr,
             filename,
             utc_now()
         )
     )
 
     connection.commit()
+
     connection.close()
 
     try:
 
-        cipher = Fernet(
-            os.environ["FERNET_KEY"].encode()
+        temp_encrypted = (
+            "protected_files/admin_temp.enc"
         )
 
-        decrypted_data = cipher.decrypt(
-            bytes(encrypted_data)
+        temp_decrypted = (
+            "protected_files/admin_temp"
         )
 
-    except Exception:
-
-        return (
-            "Unable to decrypt file.",
-            500
+        os.makedirs(
+            "protected_files",
+            exist_ok=True
         )
 
-    return send_file(
-        BytesIO(decrypted_data),
-        as_attachment=True,
-        download_name=filename
-    )
+        with open(
+            temp_encrypted,
+            "wb"
+        ) as f:
+
+            f.write(encrypted_data)
+
+        decrypt_file(
+            temp_encrypted,
+            temp_decrypted
+        )
+
+        with open(
+            temp_decrypted,
+            "rb"
+        ) as f:
+
+            data = f.read()
+
+        os.remove(temp_encrypted)
+        os.remove(temp_decrypted)
+
+        return send_file(
+            io.BytesIO(data),
+            as_attachment=True,
+            download_name=filename
+        )
+
+    except Exception as e:
+
+        return f"Download failed: {e}", 500
 
 
-@app.route("/admin-delete-file/<int:file_id>")
+# ---------------------------------------------------------
+# ADMIN DELETE FILE
+# ---------------------------------------------------------
+
+@app.route(
+    "/admin-delete-file/<int:file_id>"
+)
 def admin_delete_file(file_id):
 
-    if not admin_required():
-        return redirect("/dashboard")
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if session.get("role") != "admin":
+
+        return "Access denied.", 403
 
     connection = get_connection()
 
@@ -1537,25 +1878,42 @@ def admin_delete_file(file_id):
     )
 
     connection.commit()
+
     connection.close()
 
-    return redirect("/admin-files")
+    return redirect(
+        url_for("admin_files")
+    )
 
+
+# ---------------------------------------------------------
+# LOGIN LOGS
+# ---------------------------------------------------------
 
 @app.route("/logs")
 def logs():
 
-    if not admin_required():
-        return redirect("/dashboard")
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if session.get("role") != "admin":
+
+        return "Access denied.", 403
 
     connection = get_connection()
 
-    login_logs = connection.execute(
+    logs = connection.execute(
         """
-        SELECT username, ip_address,
-               timestamp, status
+        SELECT username,
+               ip_address,
+               timestamp,
+               status
         FROM login_attempts
-        ORDER BY id DESC
+        ORDER BY timestamp DESC
+        LIMIT 200
         """
     ).fetchall()
 
@@ -1563,23 +1921,37 @@ def logs():
 
     return render_template(
         "logs.html",
-        logs=login_logs
+        logs=logs
     )
 
+
+# ---------------------------------------------------------
+# SECURITY ALERTS
+# ---------------------------------------------------------
 
 @app.route("/alerts")
 def alerts():
 
-    if not admin_required():
-        return redirect("/dashboard")
+    if not login_required():
+
+        return redirect(
+            url_for("login")
+        )
+
+    if session.get("role") != "admin":
+
+        return "Access denied.", 403
 
     connection = get_connection()
 
-    alert_list = connection.execute(
+    alerts_list = connection.execute(
         """
-        SELECT ip_address, message, timestamp
+        SELECT ip_address,
+               message,
+               timestamp
         FROM alerts
-        ORDER BY id DESC
+        ORDER BY timestamp DESC
+        LIMIT 100
         """
     ).fetchall()
 
@@ -1587,25 +1959,36 @@ def alerts():
 
     return render_template(
         "alerts.html",
-        alerts=alert_list
+        alerts=alerts_list
     )
 
+
+# ---------------------------------------------------------
+# LOGOUT
+# ---------------------------------------------------------
 
 @app.route("/logout")
 def logout():
 
     session.clear()
 
-    return redirect("/login")
+    return redirect(
+        url_for("login")
+    )
 
 
-create_database()
-
+# ---------------------------------------------------------
+# RUN
+# ---------------------------------------------------------
 
 if __name__ == "__main__":
 
     app.run(
-        host="127.0.0.1",
-        port=5000,
-        debug=False
+        host="0.0.0.0",
+        port=int(
+            os.environ.get(
+                "PORT",
+                5000
+            )
+        )
     )

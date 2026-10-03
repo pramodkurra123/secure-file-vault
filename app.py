@@ -687,6 +687,9 @@ def login():
             "login.html",
             error="Invalid username or password"
         )
+            return render_template(
+        "login.html"
+    )
 
 
 @app.route("/verify-otp", methods=["GET", "POST"])

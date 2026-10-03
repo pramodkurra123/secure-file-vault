@@ -235,6 +235,118 @@
             line-height: 1.7;
         }
 
+        /* =========================
+           SECURITY FLOWCHART
+           ========================= */
+
+        .flow-section {
+            margin-top: 22px;
+            padding-top: 20px;
+            border-top: 1px solid #263653;
+        }
+
+        .flow-section h2 {
+            font-size: 18px;
+            color: #f8fafc;
+            margin-bottom: 8px;
+        }
+
+        .flow-description {
+            color: #94a3b8;
+            font-size: 11px;
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+
+        .flowchart {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 0 20px;
+        }
+
+        .flow-box {
+            width: 100%;
+            max-width: 500px;
+            padding: 15px;
+            border-radius: 10px;
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(15, 23, 42, 0.95),
+                    rgba(10, 18, 34, 0.95)
+                );
+            border: 1px solid #334155;
+            text-align: center;
+        }
+
+        .flow-icon {
+            font-size: 20px;
+            margin-bottom: 7px;
+        }
+
+        .flow-title {
+            color: #f8fafc;
+            font-size: 13px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .flow-text {
+            color: #94a3b8;
+            font-size: 10px;
+            line-height: 1.5;
+        }
+
+        .arrow {
+            color: #67e8f9;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        /* =========================
+           DEFINITIONS
+           ========================= */
+
+        .definitions {
+            margin-top: 10px;
+        }
+
+        .definitions h3 {
+            color: #f8fafc;
+            font-size: 14px;
+            margin-bottom: 13px;
+        }
+
+        .definition-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .definition {
+            padding: 12px;
+            border-radius: 8px;
+            background: rgba(6, 182, 212, 0.035);
+            border: 1px solid #263653;
+        }
+
+        .definition strong {
+            display: block;
+            color: #67e8f9;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+
+        .definition span {
+            display: block;
+            color: #94a3b8;
+            font-size: 10px;
+            line-height: 1.6;
+        }
+
         .files-title {
             display: flex;
             justify-content: space-between;
@@ -373,6 +485,14 @@
                 width: 100%;
             }
 
+            .definition-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .flow-box {
+                max-width: 100%;
+            }
+
             th,
             td {
                 white-space: nowrap;
@@ -509,15 +629,256 @@
         <div class="security-note">
 
             🛡️ <strong>Security:</strong>
-            Version-2 files use a randomly generated vault encryption key.
-            The key is protected on the server using the configured recovery
-            key and is released only after successful Pro Vault authentication.
+            Version-2 files use a randomly generated 256-bit vault
+            encryption key. The key is protected on the server using
+            the configured recovery key and is released only after
+            successful Pro Vault authentication.
 
             <br><br>
 
             If you forget your Pro Vault password, use
-            <strong>Forgot Pro Vault Password?</strong> to verify your email
-            with an OTP and create a new password.
+            <strong>Forgot Pro Vault Password?</strong> to verify your
+            email with an OTP and create a new password.
+
+        </div>
+
+
+        <!-- =========================
+             SECURITY FLOWCHART
+             ========================= -->
+
+        <div class="flow-section">
+
+            <h2>
+                🔄 Pro Vault Security Flow
+            </h2>
+
+            <p class="flow-description">
+                The Pro Vault uses a protected vault key for Version-2
+                files. Password verification controls access to the
+                vault key, while OTP-based recovery allows the user
+                to create a new password without replacing the
+                existing vault key.
+            </p>
+
+
+            <div class="flowchart">
+
+                <div class="flow-box">
+
+                    <div class="flow-icon">
+                        👤
+                    </div>
+
+                    <div class="flow-title">
+                        User
+                    </div>
+
+                    <div class="flow-text">
+                        Logs in and opens the Pro Vault.
+                    </div>
+
+                </div>
+
+
+                <div class="arrow">
+                    ↓
+                </div>
+
+
+                <div class="flow-box">
+
+                    <div class="flow-icon">
+                        🔑
+                    </div>
+
+                    <div class="flow-title">
+                        Enter Vault Password
+                    </div>
+
+                    <div class="flow-text">
+                        The Pro Vault password is verified before
+                        access to the protected vault key.
+                    </div>
+
+                </div>
+
+
+                <div class="arrow">
+                    ↓
+                </div>
+
+
+                <div class="flow-box">
+
+                    <div class="flow-icon">
+                        🛡️
+                    </div>
+
+                    <div class="flow-title">
+                        Protected Vault Key
+                    </div>
+
+                    <div class="flow-text">
+                        A randomly generated 256-bit vault key is
+                        protected on the server.
+                    </div>
+
+                </div>
+
+
+                <div class="arrow">
+                    ↓
+                </div>
+
+
+                <div class="flow-box">
+
+                    <div class="flow-icon">
+                        🔒
+                    </div>
+
+                    <div class="flow-title">
+                        Version-2 Encryption
+                    </div>
+
+                    <div class="flow-text">
+                        Files are encrypted using AES-256-GCM with
+                        a random initialization vector.
+                    </div>
+
+                </div>
+
+
+                <div class="arrow">
+                    ↓
+                </div>
+
+
+                <div class="flow-box">
+
+                    <div class="flow-icon">
+                        🗄️
+                    </div>
+
+                    <div class="flow-title">
+                        Encrypted Storage
+                    </div>
+
+                    <div class="flow-text">
+                        Encrypted file data is stored in the
+                        Pro Vault database.
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 DEFINITIONS
+                 ========================= -->
+
+            <div class="definitions">
+
+                <h3>
+                    📖 Pro Vault Definitions
+                </h3>
+
+
+                <div class="definition-grid">
+
+                    <div class="definition">
+
+                        <strong>
+                            Vault Password
+                        </strong>
+
+                        <span>
+                            Password used to authenticate the user
+                            before accessing the Pro Vault.
+                        </span>
+
+                    </div>
+
+
+                    <div class="definition">
+
+                        <strong>
+                            Vault Key
+                        </strong>
+
+                        <span>
+                            A randomly generated 256-bit key used
+                            for Version-2 file encryption and
+                            decryption.
+                        </span>
+
+                    </div>
+
+
+                    <div class="definition">
+
+                        <strong>
+                            Version 1
+                        </strong>
+
+                        <span>
+                            The older encryption format where the
+                            encryption key is derived from the
+                            original password using PBKDF2.
+                        </span>
+
+                    </div>
+
+
+                    <div class="definition">
+
+                        <strong>
+                            Version 2
+                        </strong>
+
+                        <span>
+                            The newer encryption format using a
+                            random vault key with AES-256-GCM
+                            encryption.
+                        </span>
+
+                    </div>
+
+
+                    <div class="definition">
+
+                        <strong>
+                            OTP Recovery
+                        </strong>
+
+                        <span>
+                            Email-based verification used to create
+                            a new Pro Vault password when the
+                            existing password is forgotten.
+                        </span>
+
+                    </div>
+
+
+                    <div class="definition">
+
+                        <strong>
+                            Recovery Data
+                        </strong>
+
+                        <span>
+                            Protected representation of the vault
+                            key stored on the server for vault
+                            recovery.
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </div>
 
         </div>
 
@@ -703,7 +1064,9 @@ let migrationFileName = null;
 function showStatus(elementId, message, type) {
 
     const element =
-        document.getElementById(elementId);
+        document.getElementById(
+            elementId
+        );
 
     element.textContent = message;
 

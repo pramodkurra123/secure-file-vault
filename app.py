@@ -16,7 +16,8 @@ from flask import (
     url_for,
     session,
     send_file,
-    flash
+    flash,
+    make_response
 )
 
 from werkzeug.security import (
@@ -1215,8 +1216,29 @@ def pro_vault():
             url_for("login")
         )
 
+    connection = get_connection()
+
+    files = connection.execute(
+        """
+        SELECT
+            id,
+            original_name,
+            file_size,
+            uploaded_at
+        FROM pro_vault_files
+        WHERE username = %s
+        ORDER BY uploaded_at DESC
+        """,
+        (
+            session.get("username"),
+        )
+    ).fetchall()
+
+    connection.close()
+
     return render_template(
-        "pro_vault.html"
+        "pro_vault.html",
+        files=files
     )
 # =========================================================
 # PRO VAULT ENCRYPTED UPLOAD
@@ -1360,6 +1382,70 @@ def pro_vault_upload():
     return {
         "message": "Encrypted file uploaded successfully."
     }, 200
+# =========================================================
+# PRO VAULT ENCRYPTED DOWNLOAD
+# =========================================================
+
+@app.route(
+    "/pro-vault-download/<int:file_id>"
+)
+def pro_vault_download(file_id):
+
+    if not login_required():
+
+        return {
+            "message": "Authentication required."
+        }, 401
+
+    connection = get_connection()
+
+    file_data = connection.execute(
+        """
+        SELECT
+            original_name,
+            file_data
+        FROM pro_vault_files
+        WHERE id = %s
+        AND username = %s
+        """,
+        (
+            file_id,
+            session.get("username")
+        )
+    ).fetchone()
+
+    connection.close()
+
+    if not file_data:
+
+        return {
+            "message": "File not found."
+        }, 404
+
+    original_name = file_data[0]
+    encrypted_data = bytes(file_data[1])
+
+    response = make_response(
+        encrypted_data
+    )
+
+    response.headers[
+        "Content-Type"
+    ] = "application/octet-stream"
+
+    response.headers[
+        "Content-Disposition"
+    ] = (
+        'attachment; filename="'
+        + original_name
+        + '.encrypted"'
+    )
+
+    response.headers[
+        "Cache-Control"
+    ] = "no-store"
+
+    return response
 
 
 # =========================================================

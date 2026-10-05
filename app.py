@@ -3297,7 +3297,8 @@ def users():
 # =========================================================
 
 @app.route(
-    "/delete-user/<int:user_id>"
+    "/delete-user/<int:user_id>",
+    methods=["GET", "POST"]
 )
 def delete_user(user_id):
 
@@ -3313,32 +3314,143 @@ def delete_user(user_id):
 
     connection = get_connection()
 
-    user = connection.execute(
-        """
-        SELECT
-            username,
-            role
-        FROM users
-        WHERE id = %s
-        """,
-        (user_id,)
-    ).fetchone()
+    try:
 
-    if user:
+        user = connection.execute(
+            """
+            SELECT
+                username,
+                role
+            FROM users
+            WHERE id = %s
+            """,
+            (user_id,)
+        ).fetchone()
 
-        if user[1] != "admin":
+        if user is None:
 
-            connection.execute(
-                """
-                DELETE FROM users
-                WHERE id = %s
-                """,
-                (user_id,)
+            connection.close()
+
+            return redirect(
+                url_for("users")
             )
 
-            connection.commit()
+        username = user[0]
+        role = user[1]
 
-    connection.close()
+        # -------------------------------------------------
+        # DO NOT DELETE ADMIN USERS
+        # -------------------------------------------------
+
+        if role == "admin":
+
+            connection.close()
+
+            return redirect(
+                url_for("users")
+            )
+
+        # -------------------------------------------------
+        # DELETE USER'S PRO VAULT DATA
+        # -------------------------------------------------
+
+        connection.execute(
+            """
+            DELETE FROM pro_vault_files
+            WHERE username = %s
+            """,
+            (username,)
+        )
+
+        connection.execute(
+            """
+            DELETE FROM vault_keys
+            WHERE username = %s
+            """,
+            (username,)
+        )
+
+        # -------------------------------------------------
+        # DELETE USER'S NORMAL STORED FILES
+        # -------------------------------------------------
+
+        connection.execute(
+            """
+            DELETE FROM stored_files
+            WHERE username = %s
+            """,
+            (username,)
+        )
+
+        # -------------------------------------------------
+        # DELETE USER'S FILE ACCESS LOGS
+        # -------------------------------------------------
+
+        connection.execute(
+            """
+            DELETE FROM file_access_logs
+            WHERE username = %s
+            """,
+            (username,)
+        )
+
+        # -------------------------------------------------
+        # DELETE USER'S LOGIN ATTEMPTS
+        # -------------------------------------------------
+
+        connection.execute(
+            """
+            DELETE FROM login_attempts
+            WHERE username = %s
+            """,
+            (username,)
+        )
+
+        # -------------------------------------------------
+        # DELETE USER'S OTP RECORDS
+        # -------------------------------------------------
+
+        connection.execute(
+            """
+            DELETE FROM otp_codes
+            WHERE username = %s
+            """,
+            (username,)
+        )
+
+        # -------------------------------------------------
+        # DELETE USER
+        # -------------------------------------------------
+
+        connection.execute(
+            """
+            DELETE FROM users
+            WHERE id = %s
+            AND role != 'admin'
+            """,
+            (user_id,)
+        )
+
+        connection.commit()
+
+        print(
+            f"USER DELETED | "
+            f"Username: {username}"
+        )
+
+    except Exception as e:
+
+        connection.rollback()
+
+        print(
+            f"DELETE USER ERROR | "
+            f"Username: {username if 'username' in locals() else 'UNKNOWN'} | "
+            f"{type(e).__name__}: {e}"
+        )
+
+    finally:
+
+        connection.close()
 
     return redirect(
         url_for("users")

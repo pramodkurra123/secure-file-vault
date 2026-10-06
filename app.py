@@ -403,48 +403,67 @@ def generate_and_send_otp(
 
         now = utc_now()
 
-        recent_count = connection.execute(
+        # Check user role
+        user = connection.execute(
             """
-            SELECT COUNT(*)
-            FROM otp_codes
+            SELECT role
+            FROM users
             WHERE username = %s
-            AND created_at >= %s
-            """,
-            (
-                username,
-                now - timedelta(minutes=15)
-            )
-        ).fetchone()[0]
-
-        if recent_count >= 3:
-
-            return False, (
-                "Too many OTP requests. "
-                "Please try again later."
-            )
-
-        last_otp = connection.execute(
-            """
-            SELECT created_at
-            FROM otp_codes
-            WHERE username = %s
-            ORDER BY created_at DESC
-            LIMIT 1
             """,
             (username,)
         ).fetchone()
 
-        if last_otp:
+        is_admin = (
+            user
+            and str(user[0]).lower() == "admin"
+        )
 
-            if now - last_otp[0] < timedelta(
-                seconds=60
-            ):
+        # Apply OTP request limits only to normal users
+        if not is_admin:
+
+            recent_count = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM otp_codes
+                WHERE username = %s
+                AND created_at >= %s
+                """,
+                (
+                    username,
+                    now - timedelta(minutes=15)
+                )
+            ).fetchone()[0]
+
+            if recent_count >= 3:
 
                 return False, (
-                    "Please wait 60 seconds "
-                    "before requesting another OTP."
+                    "Too many OTP requests. "
+                    "Please try again later."
                 )
 
+            last_otp = connection.execute(
+                """
+                SELECT created_at
+                FROM otp_codes
+                WHERE username = %s
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (username,)
+            ).fetchone()
+
+            if last_otp:
+
+                if now - last_otp[0] < timedelta(
+                    seconds=60
+                ):
+
+                    return False, (
+                        "Please wait 60 seconds "
+                        "before requesting another OTP."
+                    )
+
+        # Invalidate previous OTPs
         connection.execute(
             """
             UPDATE otp_codes
@@ -455,6 +474,7 @@ def generate_and_send_otp(
             (username,)
         )
 
+        # Generate new OTP
         otp = f"{secrets.randbelow(1000000):06d}"
 
         otp_hash = hashlib.sha256(
